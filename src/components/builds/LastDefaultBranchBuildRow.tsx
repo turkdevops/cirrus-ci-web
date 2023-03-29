@@ -1,18 +1,17 @@
-import React, { useEffect } from 'react';
-import { createFragmentContainer, requestSubscription } from 'react-relay';
+import React, { useMemo } from 'react';
+import { useFragment, useSubscription } from 'react-relay';
 import { graphql } from 'babel-plugin-relay/macro';
-import environment from '../../createRelayEnvironment';
-import TableCell from '@material-ui/core/TableCell';
-import TableRow from '@material-ui/core/TableRow';
-import { withStyles, WithStyles } from '@material-ui/core/styles';
-import { useHistory } from 'react-router-dom';
-import { navigateRepository } from '../../utils/navigate';
+import TableCell from '@mui/material/TableCell';
+import TableRow from '@mui/material/TableRow';
+import { makeStyles } from '@mui/styles';
+import { useNavigate } from 'react-router-dom';
+import { navigateRepositoryHelper } from '../../utils/navigateHelper';
 import RepositoryNameChip from '../chips/RepositoryNameChip';
 import BuildStatusChip from '../chips/BuildStatusChip';
 import classNames from 'classnames';
 import BuildChangeChip from '../chips/BuildChangeChip';
-import Typography from '@material-ui/core/Typography';
-import { LastDefaultBranchBuildRow_repository } from './__generated__/LastDefaultBranchBuildRow_repository.graphql';
+import { LastDefaultBranchBuildRow_repository$key } from './__generated__/LastDefaultBranchBuildRow_repository.graphql';
+import MarkdownTypography from '../common/MarkdownTypography';
 
 const buildSubscription = graphql`
   subscription LastDefaultBranchBuildRowSubscription($repositoryID: ID!) {
@@ -22,38 +21,56 @@ const buildSubscription = graphql`
   }
 `;
 
-const styles = theme => ({
-  chip: {
-    margin: 4,
-  },
-  message: {
-    margin: theme.spacing(1.0),
-    width: '100%',
-  },
-  cell: {
-    padding: 0,
-  },
+const useStyles = makeStyles(theme => {
+  return {
+    chip: {
+      margin: 4,
+    },
+    message: {
+      margin: theme.spacing(1.0),
+      width: '100%',
+    },
+    cell: {
+      padding: 4,
+    },
+  };
 });
 
-interface Props extends WithStyles<typeof styles> {
-  repository: LastDefaultBranchBuildRow_repository;
+interface Props {
+  repository: LastDefaultBranchBuildRow_repository$key;
 }
 
-function LastDefaultBranchBuildRow(props: Props) {
-  useEffect(() => {
-    let variables = { repositoryID: props.repository.id };
+export default function LastDefaultBranchBuildRow(props: Props) {
+  let repository = useFragment(
+    graphql`
+      fragment LastDefaultBranchBuildRow_repository on Repository {
+        id
+        owner
+        name
+        lastDefaultBranchBuild {
+          id
+          branch
+          changeMessageTitle
+          ...BuildChangeChip_build
+          ...BuildStatusChip_build
+        }
+        ...RepositoryNameChip_repository
+      }
+    `,
+    props.repository,
+  );
 
-    let subscription = requestSubscription(environment, {
+  const buildSubscriptionConfig = useMemo(
+    () => ({
+      variables: { repositoryID: repository.id },
       subscription: buildSubscription,
-      variables: variables,
-    });
-    return () => {
-      subscription.dispose();
-    };
-  }, [props.repository.id]);
+    }),
+    [repository.id],
+  );
+  useSubscription(buildSubscriptionConfig);
 
-  let history = useHistory();
-  let { classes, repository } = props;
+  let navigate = useNavigate();
+  let classes = useStyles();
   let build = repository.lastDefaultBranchBuild;
   if (!build) {
     return null;
@@ -61,27 +78,25 @@ function LastDefaultBranchBuildRow(props: Props) {
   return (
     <TableRow
       key={repository.id}
-      onClick={e => navigateRepository(history, e, repository.owner, repository.name)}
+      onClick={e => navigateRepositoryHelper(navigate, e, repository.owner, repository.name)}
       hover={true}
       style={{ cursor: 'pointer' }}
     >
       <TableCell className={classes.cell}>
-        <div className="d-flex flex-column align-items-start">
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'start', padding: '4px' }}>
           <RepositoryNameChip repository={repository} className={classes.chip} />
           <BuildChangeChip build={repository.lastDefaultBranchBuild} className={classes.chip} />
         </div>
-        <div className={classNames('d-lg-none', classes.message)}>
-          <Typography variant="body1" color="inherit">
-            {build.changeMessageTitle}
-          </Typography>
-        </div>
+        <MarkdownTypography
+          text={build.changeMessageTitle}
+          variant="body1"
+          color="inherit"
+          className={classes.message}
+          sx={{ display: { xs: 'block', sm: 'none' } }}
+        />
       </TableCell>
       <TableCell className={classNames(classes.cell, classes.message)}>
-        <div className="card-body">
-          <Typography variant="body1" color="inherit">
-            {build.changeMessageTitle}
-          </Typography>
-        </div>
+        <MarkdownTypography text={build.changeMessageTitle} variant="body1" color="inherit" />
       </TableCell>
       <TableCell className={classes.cell}>
         <BuildStatusChip build={build} className={classNames('pull-right', classes.chip)} />
@@ -89,22 +104,3 @@ function LastDefaultBranchBuildRow(props: Props) {
     </TableRow>
   );
 }
-
-export default createFragmentContainer(withStyles(styles)(LastDefaultBranchBuildRow), {
-  repository: graphql`
-    fragment LastDefaultBranchBuildRow_repository on Repository {
-      id
-      owner
-      name
-      lastDefaultBranchBuild {
-        id
-        branch
-        changeMessageTitle
-        status
-        ...BuildChangeChip_build
-        ...BuildStatusChip_build
-      }
-      ...RepositoryNameChip_repository
-    }
-  `,
-});

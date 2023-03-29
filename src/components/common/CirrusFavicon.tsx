@@ -3,7 +3,7 @@ import { Base64 } from 'js-base64';
 import { BuildStatus } from '../chips/__generated__/BuildStatusChip_build.graphql';
 import { TaskStatus } from '../chips/__generated__/TaskStatusChip_task.graphql';
 import { useFaviconColor } from '../../utils/colors';
-import { useTheme } from '@material-ui/core';
+import { useTheme } from '@mui/material';
 
 function updateIcon(color) {
   let linkEl = document.getElementById('favicon') as HTMLLinkElement;
@@ -53,7 +53,7 @@ interface CirrusFaviconProps {
   status?: BuildStatus | TaskStatus | boolean;
 }
 
-export default (props: CirrusFaviconProps) => {
+export default function CirrusFavicon(props: CirrusFaviconProps): JSX.Element {
   let theme = useTheme();
   useEffect(() => {
     return function cleanup() {
@@ -62,4 +62,4 @@ export default (props: CirrusFaviconProps) => {
   }, [theme.palette.primary.main]);
   updateIcon(useFaviconColor(props.status));
   return null;
-};
+}

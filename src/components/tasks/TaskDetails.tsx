@@ -1,27 +1,23 @@
-import { createStyles, withStyles, WithStyles } from '@material-ui/core/styles';
-import Button from '@material-ui/core/Button';
-import Card from '@material-ui/core/Card';
-import CardActions from '@material-ui/core/CardActions';
-import CardContent from '@material-ui/core/CardContent';
-import Chip from '@material-ui/core/Chip';
-import Paper from '@material-ui/core/Paper';
-import Typography from '@material-ui/core/Typography';
+import { makeStyles } from '@mui/styles';
+import environment from '../../createRelayEnvironment';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import CardActions from '@mui/material/CardActions';
+import CardContent from '@mui/material/CardContent';
+import Chip from '@mui/material/Chip';
+import Paper from '@mui/material/Paper';
+import Typography from '@mui/material/Typography';
 import { graphql } from 'babel-plugin-relay/macro';
 import classNames from 'classnames';
-import React, { useEffect } from 'react';
-import { commitMutation, createFragmentContainer, requestSubscription } from 'react-relay';
-import { RouteComponentProps, useHistory, withRouter } from 'react-router-dom';
-import environment from '../../createRelayEnvironment';
-import { navigateBuild, navigateTask } from '../../utils/navigate';
+import React, { Suspense, useEffect, useState, useMemo } from 'react';
+import { useFragment, useMutation, requestSubscription } from 'react-relay';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { navigateBuildHelper, navigateTaskHelper } from '../../utils/navigateHelper';
 import { hasWritePermissions } from '../../utils/permissions';
 import { isTaskFinalStatus } from '../../utils/status';
 import { shorten } from '../../utils/text';
 import TaskArtifacts from '../artifacts/TaskArtifacts';
-import BuildBranchNameChip from '../chips/BuildBranchNameChip';
-import BuildChangeChip from '../chips/BuildChangeChip';
-import RepositoryNameChip from '../chips/RepositoryNameChip';
 import TaskCreatedChip from '../chips/TaskCreatedChip';
-import TaskNameChip from '../chips/TaskNameChip';
 import TaskOptionalChip from '../chips/TaskOptionalChip';
 import TaskScheduledChip from '../chips/TaskScheduledChip';
 import TaskStatusChip from '../chips/TaskStatusChip';
@@ -30,119 +26,77 @@ import CirrusFavicon from '../common/CirrusFavicon';
 import TaskCommandList from './TaskCommandList';
 import TaskCommandsProgress from './TaskCommandsProgress';
 import TaskList from './TaskList';
-import { TaskDetails_task } from './__generated__/TaskDetails_task.graphql';
-import { TaskDetailsReRunMutationResponse } from './__generated__/TaskDetailsReRunMutation.graphql';
+import { TaskDetails_task, TaskDetails_task$key } from './__generated__/TaskDetails_task.graphql';
+import {
+  TaskDetailsReRunMutation,
+  TaskDetailsReRunMutationResponse,
+  TaskDetailsReRunMutationVariables,
+} from './__generated__/TaskDetailsReRunMutation.graphql';
 import TaskResourcesChip from '../chips/TaskResourcesChip';
 import { Helmet as Head } from 'react-helmet';
 import ExecutionInfo from '../common/TaskExecutionInfo';
-import Refresh from '@material-ui/icons/Refresh';
-import PlayCircleFilled from '@material-ui/icons/PlayCircleFilled';
-import Cancel from '@material-ui/icons/Cancel';
-import ArrowBack from '@material-ui/icons/ArrowBack';
+import Refresh from '@mui/icons-material/Refresh';
+import PlayCircleFilled from '@mui/icons-material/PlayCircleFilled';
+import Cancel from '@mui/icons-material/Cancel';
+import ArrowBack from '@mui/icons-material/ArrowBack';
 import TaskExperimentalChip from '../chips/TaskExperimentalChip';
 import TaskStatefulChip from '../chips/TaskStatefulChip';
 import TaskTimeoutChip from '../chips/TaskTimeoutChip';
 import Notification from '../common/Notification';
 import HookList from '../hooks/HookList';
-import ArrowDropDownIcon from '@material-ui/icons/ArrowDropDown';
-import { TabContext, TabList, TabPanel } from '@material-ui/lab';
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import { TabContext, TabList, TabPanel } from '@mui/lab';
+import { ToggleButton } from '@mui/material';
 import {
-  AppBar,
+  Badge,
   ButtonGroup,
   ClickAwayListener,
   Collapse,
   Grow,
+  IconButton,
+  List,
   MenuItem,
   MenuList,
   Popper,
   Tab,
   Tooltip,
-} from '@material-ui/core';
-import { Dehaze, Functions, LayersClear } from '@material-ui/icons';
-import { TaskDetailsInvalidateCachesMutationResponse } from './__generated__/TaskDetailsInvalidateCachesMutation.graphql';
+} from '@mui/material';
+import { BugReport, Dehaze, Functions, LayersClear } from '@mui/icons-material';
+import {
+  TaskDetailsInvalidateCachesMutation,
+  TaskDetailsInvalidateCachesMutationResponse,
+  TaskDetailsInvalidateCachesMutationVariables,
+} from './__generated__/TaskDetailsInvalidateCachesMutation.graphql';
 import TaskRerunnerChip from '../chips/TaskRerunnerChip';
 import TaskCancellerChip from '../chips/TaskCancellerChip';
-import RepositoryOwnerChip from '../chips/RepositoryOwnerChip';
-import Accordion from '@material-ui/core/Accordion';
-import AccordionDetails from '@material-ui/core/AccordionDetails';
-import AccordionSummary from '@material-ui/core/AccordionSummary';
-import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
+import Accordion from '@mui/material/Accordion';
+import AccordionDetails from '@mui/material/AccordionDetails';
+import AccordionSummary from '@mui/material/AccordionSummary';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { CirrusTerminal } from '../cirrus-terminal/CirrusTerminal';
 import { HookType } from '../hooks/HookType';
-
-const taskReRunMutation = graphql`
-  mutation TaskDetailsReRunMutation($input: TaskReRunInput!) {
-    rerun(input: $input) {
-      newTask {
-        id
-      }
-    }
-  }
-`;
-
-const taskTriggerMutation = graphql`
-  mutation TaskDetailsTriggerMutation($input: TaskTriggerInput!) {
-    trigger(input: $input) {
-      task {
-        id
-        status
-        triggerType
-      }
-    }
-  }
-`;
-
-const taskCancelMutation = graphql`
-  mutation TaskDetailsCancelMutation($input: TaskAbortInput!) {
-    abortTask(input: $input) {
-      abortedTask {
-        id
-        status
-      }
-    }
-  }
-`;
-
-const invalidateCachesMutation = graphql`
-  mutation TaskDetailsInvalidateCachesMutation($input: InvalidateCacheEntriesInput!) {
-    invalidateCacheEntries(input: $input) {
-      clientMutationId
-    }
-  }
-`;
+import {
+  TaskDetailsTriggerMutation,
+  TaskDetailsTriggerMutationVariables,
+} from './__generated__/TaskDetailsTriggerMutation.graphql';
+import {
+  TaskDetailsCancelMutation,
+  TaskDetailsCancelMutationVariables,
+} from './__generated__/TaskDetailsCancelMutation.graphql';
+import TaskDebuggingInformation from './TaskDebuggingInformation';
+import CirrusLinearProgress from '../common/CirrusLinearProgress';
+import CommitMessage from '../common/CommitMessage';
 
 const taskSubscription = graphql`
   subscription TaskDetailsSubscription($taskID: ID!) {
     task(id: $taskID) {
-      id
-      name
-      status
-      labels
-      creationTimestamp
-      executingTimestamp
-      durationInSeconds
-      statusDurations {
-        status
-        durationInSeconds
-      }
-      commands {
-        name
-        status
-        durationInSeconds
-      }
-      notifications {
-        ...Notification_notification
-      }
-      terminalCredential {
-        locator
-        trustedSecret
-      }
+      ...TaskDetails_task
     }
   }
 `;
 
-const styles = theme =>
-  createStyles({
+const useStyles = makeStyles(theme => {
+  return {
     title: {
       padding: 8,
       background: theme.palette.action.disabledBackground,
@@ -167,10 +121,10 @@ const styles = theme =>
       marginTop: theme.spacing(1.0),
     },
     automaticReRun: {
-      backgroundColor: theme.palette.warning.second,
+      backgroundColor: theme.palette.warning.light,
     },
     transaction: {
-      backgroundColor: theme.palette.success.second,
+      backgroundColor: theme.palette.success.light,
     },
     tabPanel: {
       padding: 0,
@@ -182,72 +136,206 @@ const styles = theme =>
     rerunOptionPopup: {
       zIndex: 1,
     },
-  });
+  };
+});
 
-interface Props extends WithStyles<typeof styles>, RouteComponentProps {
-  task: TaskDetails_task;
+interface Props {
+  task: TaskDetails_task$key;
 }
 
-function TaskDetails(props: Props, context) {
-  let history = useHistory();
+export default function TaskDetails(props: Props) {
+  let task = useFragment(
+    graphql`
+      fragment TaskDetails_task on Task {
+        id
+        name
+        buildId
+        status
+        triggerType
+        automaticReRun
+        ...TaskNameChip_task
+        ...TaskCreatedChip_task
+        ...TaskScheduledChip_task
+        ...TaskStatusChip_task
+        commands {
+          name
+        }
+        ...TaskCommandsProgress_task
+        ...TaskCommandList_task
+        ...TaskArtifacts_task
+        ...ArtifactsView_task
+        ...TaskTransactionChip_task
+        ...TaskOptionalChip_task
+        ...TaskResourcesChip_task
+        ...TaskExperimentalChip_task
+        ...TaskTimeoutChip_task
+        ...TaskStatefulChip_task
+        ...TaskOptionalChip_task
+        ...TaskRerunnerChip_task
+        ...TaskCancellerChip_task
+        labels
+        artifacts {
+          name
+        }
+        notifications {
+          message
+          ...Notification_notification
+        }
+        build {
+          branch
+          changeIdInRepo
+          changeMessageTitle
+          viewerPermission
+          ...BuildBranchNameChip_build
+          ...BuildChangeChip_build
+        }
+        repository {
+          cloneUrl
+          ...RepositoryOwnerChip_repository
+          ...RepositoryNameChip_repository
+        }
+        allOtherRuns {
+          id
+          localGroupId
+          requiredGroups
+          scheduledTimestamp
+          executingTimestamp
+          finalStatusTimestamp
+          ...TaskListRow_task
+        }
+        dependencies {
+          id
+          localGroupId
+          requiredGroups
+          scheduledTimestamp
+          executingTimestamp
+          finalStatusTimestamp
+          ...TaskListRow_task
+        }
+        ...TaskExecutionInfo_task
+        hooks {
+          timestamp
+          ...HookListRow_hook
+        }
+        executionInfo {
+          cacheRetrievalAttempts {
+            hits {
+              key
+              valid
+            }
+          }
+          agentNotifications {
+            message
+          }
+        }
+        terminalCredential {
+          locator
+          trustedSecret
+        }
+      }
+    `,
+    props.task,
+  );
+  let navigate = useNavigate();
+
+  const isFinalStatus = useMemo(() => isTaskFinalStatus(task.status), [task.status]);
   useEffect(() => {
-    if (isTaskFinalStatus(props.task.status)) {
+    if (isFinalStatus) {
       return;
     }
 
-    let variables = { taskID: props.task.id };
+    let variables = { taskID: task.id };
     let subscription = requestSubscription(environment, {
       subscription: taskSubscription,
       variables: variables,
     });
     return () => subscription.dispose();
-  }, [props.task.id, props.task.status]);
+  }, [task.id, isFinalStatus]);
 
-  let { task, classes } = props;
+  let classes = useStyles();
   let build = task.build;
   let repository = task.repository;
 
+  const [commitTaskReRunMutation] = useMutation<TaskDetailsReRunMutation>(graphql`
+    mutation TaskDetailsReRunMutation($input: TaskReRunInput!) {
+      rerun(input: $input) {
+        newTask {
+          id
+        }
+      }
+    }
+  `);
+
+  const [commitTaskTriggerMutation] = useMutation<TaskDetailsTriggerMutation>(
+    graphql`
+      mutation TaskDetailsTriggerMutation($input: TaskTriggerInput!) {
+        trigger(input: $input) {
+          task {
+            id
+            status
+            triggerType
+          }
+        }
+      }
+    `,
+  );
+
+  const [commitTaskCancelMutation] = useMutation<TaskDetailsCancelMutation>(
+    graphql`
+      mutation TaskDetailsCancelMutation($input: TaskAbortInput!) {
+        abortTask(input: $input) {
+          abortedTask {
+            id
+            status
+          }
+        }
+      }
+    `,
+  );
+
+  const [commitInvalidateCachesMutation] = useMutation<TaskDetailsInvalidateCachesMutation>(graphql`
+    mutation TaskDetailsInvalidateCachesMutation($input: InvalidateCacheEntriesInput!) {
+      invalidateCacheEntries(input: $input) {
+        clientMutationId
+      }
+    }
+  `);
+
   function trigger(taskId) {
-    const variables = {
+    const variables: TaskDetailsTriggerMutationVariables = {
       input: {
         clientMutationId: 'trigger-' + taskId,
         taskId: taskId,
       },
     };
 
-    commitMutation(environment, {
-      mutation: taskTriggerMutation,
+    commitTaskTriggerMutation({
       variables: variables,
       onError: err => console.error(err),
     });
   }
 
   function abort(taskId) {
-    const variables = {
+    const variables: TaskDetailsCancelMutationVariables = {
       input: {
         clientMutationId: 'abort-' + taskId,
         taskId: taskId,
       },
     };
 
-    commitMutation(environment, {
-      mutation: taskCancelMutation,
+    commitTaskCancelMutation({
       variables: variables,
       onError: err => console.error(err),
     });
   }
 
-  let repoUrl = repository.cloneUrl.slice(0, -4);
-  let branchUrl = build.branch.startsWith('pull/') ? `${repoUrl}/${build.branch}` : `${repoUrl}/tree/${build.branch}`;
-  let commitUrl = repoUrl + '/commit/' + build.changeIdInRepo;
-
   let notificationsComponent =
     !task.notifications || task.notifications.length === 0 ? null : (
-      <div className={classNames('container', classes.gap)}>
+      <List>
         {task.notifications.map(notification => (
           <Notification key={notification.message} notification={notification} />
         ))}
-      </div>
+      </List>
     );
 
   let artifactsComponent =
@@ -264,7 +352,7 @@ function TaskDetails(props: Props, context) {
     setRerunOptionsShown(prevOpen => !prevOpen);
   };
 
-  const closeRerunOptions = (event: React.MouseEvent<Document, MouseEvent>) => {
+  const closeRerunOptions = (event: MouseEvent | TouchEvent) => {
     if (anchorRef.current && anchorRef.current.contains(event.target as HTMLElement)) {
       return;
     }
@@ -272,39 +360,34 @@ function TaskDetails(props: Props, context) {
     setRerunOptionsShown(false);
   };
 
-  const rerunOptions = ['Re-Run', 'Re-Run with Terminal Access'];
-  const [selectedOptionIndex, setSelectedOptionIndex] = React.useState(0);
-
-  function chooseRerunOption(index: number) {
-    setSelectedOptionIndex(index);
-    setRerunOptionsShown(false);
-  }
-
-  function rerun(taskId: string) {
-    const variables = {
+  function rerun(taskId: string, withTerminalAccess: boolean) {
+    const variables: TaskDetailsReRunMutationVariables = {
       input: {
         clientMutationId: 'rerun-' + taskId,
         taskId: taskId,
-        attachTerminal: selectedOptionIndex === 1,
+        attachTerminal: withTerminalAccess,
       },
     };
 
-    commitMutation(environment, {
-      mutation: taskReRunMutation,
+    commitTaskReRunMutation({
       variables: variables,
-      onCompleted: (response: TaskDetailsReRunMutationResponse) => {
-        navigateTask(history, null, response.rerun.newTask.id);
+      onCompleted: (response: TaskDetailsReRunMutationResponse, errors) => {
+        if (errors) {
+          console.error(errors);
+          return;
+        }
+        navigateTaskHelper(navigate, null, response.rerun.newTask.id);
       },
       onError: err => console.error(err),
     });
   }
 
   let reRunButton =
-    !hasWritePermissions(build.viewerPermission) || !isTaskFinalStatus(task.status) ? null : (
-      <div>
+    !hasWritePermissions(build.viewerPermission) || !isFinalStatus ? null : (
+      <>
         <ButtonGroup variant="contained" ref={anchorRef}>
-          <Button onClick={() => rerun(task.id)} startIcon={<Refresh />}>
-            {rerunOptions[selectedOptionIndex]}
+          <Button onClick={() => rerun(task.id, false)} startIcon={<Refresh />}>
+            Re-Run
           </Button>
           <Button size="small" onClick={toggleRerunOptions}>
             <ArrowDropDownIcon />
@@ -325,25 +408,17 @@ function TaskDetails(props: Props, context) {
                 transformOrigin: placement === 'bottom' ? 'center top' : 'center bottom',
               }}
             >
-              <Paper>
+              <Paper elevation={24}>
                 <ClickAwayListener onClickAway={closeRerunOptions}>
                   <MenuList id="split-button-menu">
-                    {rerunOptions.map((option, index) => (
-                      <MenuItem
-                        key={option}
-                        selected={index === selectedOptionIndex}
-                        onClick={event => chooseRerunOption(index)}
-                      >
-                        {option}
-                      </MenuItem>
-                    ))}
+                    <MenuItem onClick={() => rerun(task.id, true)}>Re-Run with Terminal Access</MenuItem>
                   </MenuList>
                 </ClickAwayListener>
               </Paper>
             </Grow>
           )}
         </Popper>
-      </div>
+      </>
     );
 
   let taskIsTriggerable = task.status === 'PAUSED';
@@ -362,7 +437,7 @@ function TaskDetails(props: Props, context) {
     );
 
   let abortButton =
-    isTaskFinalStatus(task.status) || !hasWritePermissions(build.viewerPermission) ? null : (
+    isFinalStatus || !hasWritePermissions(build.viewerPermission) ? null : (
       <Button variant="contained" onClick={() => abort(task.id)} startIcon={<Cancel />}>
         Cancel
       </Button>
@@ -387,7 +462,7 @@ function TaskDetails(props: Props, context) {
 
     if (cacheKeys.length === 0) return;
 
-    const variables = {
+    const variables: TaskDetailsInvalidateCachesMutationVariables = {
       input: {
         clientMutationId: 'invalidate-caches-' + task.id,
         taskId: task.id,
@@ -395,10 +470,13 @@ function TaskDetails(props: Props, context) {
       },
     };
 
-    commitMutation(environment, {
-      mutation: invalidateCachesMutation,
+    commitInvalidateCachesMutation({
       variables: variables,
-      onCompleted: (response: TaskDetailsInvalidateCachesMutationResponse) => {
+      onCompleted: (response: TaskDetailsInvalidateCachesMutationResponse, errors) => {
+        if (errors) {
+          console.log(errors);
+          return;
+        }
         setDisableInvalidateCachesButton(true);
       },
       onError: err => console.error(err),
@@ -422,7 +500,7 @@ function TaskDetails(props: Props, context) {
   let allOtherRuns: JSX.Element | [] = [];
   if (task.allOtherRuns && task.allOtherRuns.length > 0) {
     allOtherRuns = (
-      <Paper>
+      <Paper elevation={24}>
         <Typography className={classes.title} variant="caption" gutterBottom display="block" align="center">
           All Other Runs
         </Typography>
@@ -433,7 +511,7 @@ function TaskDetails(props: Props, context) {
   let dependencies: JSX.Element | [] = [];
   if (task.dependencies && task.dependencies.length > 0) {
     dependencies = (
-      <Paper>
+      <Paper elevation={24}>
         <Typography className={classes.title} variant="caption" gutterBottom display="block" align="center">
           Dependencies
         </Typography>
@@ -442,39 +520,27 @@ function TaskDetails(props: Props, context) {
     );
   }
 
-  const [currentTab, setCurrentTab] = React.useState('instructions');
+  let currentTab = useLocation().pathname.endsWith('/hooks') ? 'hooks' : 'instructions';
+
   const handleChange = (event, newValue) => {
     if (newValue === 'hooks') {
-      history.push('/task/' + task.id + '/hooks');
+      navigate('/task/' + task.id + '/hooks');
     } else {
-      history.push('/task/' + task.id);
+      navigate('/task/' + task.id);
     }
   };
 
-  useEffect(() => {
-    function updateTabSelection() {
-      if (history.location.pathname.endsWith('/hooks')) {
-        setCurrentTab('hooks');
-      } else {
-        setCurrentTab('instructions');
-      }
-    }
-
-    updateTabSelection();
-
-    return history.listen(location => {
-      updateTabSelection();
-    });
-  });
+  const [displayDebugInfo, setDisplayDebugInfo] = React.useState(false);
+  const toggleDisplayDebugInfo = () => {
+    setDisplayDebugInfo(!displayDebugInfo);
+  };
 
   const tabbedCommandsAndHooks = (
     <TabContext value={currentTab}>
-      <AppBar position="static">
-        <TabList onChange={handleChange}>
-          <Tab icon={<Dehaze />} label={'Instructions (' + task.commands.length + ')'} value="instructions" />
-          <Tab icon={<Functions />} label={'Hooks (' + task.hooks.length + ')'} value="hooks" />
-        </TabList>
-      </AppBar>
+      <TabList onChange={handleChange}>
+        <Tab icon={<Dehaze />} label={'Instructions (' + task.commands.length + ')'} value="instructions" />
+        <Tab icon={<Functions />} label={'Hooks (' + task.hooks.length + ')'} value="hooks" />
+      </TabList>
       <TabPanel value="instructions" className={classes.tabPanel}>
         <TaskCommandList task={task} />
       </TabPanel>
@@ -485,14 +551,10 @@ function TaskDetails(props: Props, context) {
   );
 
   function desiredLabel(label: string) {
-    if (label.startsWith('canceller_') || label.startsWith('rerunner_')) {
-      return false;
-    }
-
-    return true;
+    return !(label.startsWith('canceller_') || label.startsWith('rerunner_'));
   }
 
-  const shouldRunTerminal = props.task.terminalCredential != null && !isTaskFinalStatus(props.task.status);
+  const shouldRunTerminal = task.terminalCredential != null && !isFinalStatus;
 
   useEffect(() => {
     let ct = new CirrusTerminal(document.getElementById('terminal'));
@@ -500,15 +562,38 @@ function TaskDetails(props: Props, context) {
     if (shouldRunTerminal) {
       ct.connect(
         'https://terminal.cirrus-ci.com',
-        props.task.terminalCredential.locator,
-        props.task.terminalCredential.trustedSecret,
+        task.terminalCredential.locator,
+        task.terminalCredential.trustedSecret,
       );
     }
 
     return () => {
       ct.dispose();
     };
-  }, [shouldRunTerminal, props.task.terminalCredential]);
+  }, [shouldRunTerminal, task.terminalCredential]);
+
+  let taskLabelsToShow = task.labels.filter(desiredLabel);
+  let MAX_TASK_LABELS_TO_SHOW = 5;
+  let [hideExtraLabels, setHideExtraLabels] = useState(taskLabelsToShow.length > MAX_TASK_LABELS_TO_SHOW);
+  let taskLabels = taskLabelsToShow.map(label => {
+    return (
+      <Tooltip key={label} title={label}>
+        <Chip className={classes.chip} label={shorten(label)} />
+      </Tooltip>
+    );
+  });
+  if (hideExtraLabels) {
+    taskLabels = taskLabels.slice(0, MAX_TASK_LABELS_TO_SHOW);
+    taskLabels.push(
+      <Tooltip key="show-more" title="Show all labels">
+        <IconButton onClick={() => setHideExtraLabels(false)}>
+          <ExpandMoreIcon sx={{ transform: 'rotate(-90deg)' }} />
+        </IconButton>
+      </Tooltip>,
+    );
+  }
+
+  const hasNoAgentNotifications = task.executionInfo?.agentNotifications?.length === 0;
 
   return (
     <div>
@@ -516,37 +601,35 @@ function TaskDetails(props: Props, context) {
         <title>{task.name} - Cirrus CI</title>
       </Head>
       <CirrusFavicon status={task.status} />
-      <Card>
+      <Card elevation={24}>
         <CardContent>
           <div className={classes.wrapper}>
-            <RepositoryOwnerChip className={classes.chip} repository={repository} />
-            <RepositoryNameChip className={classes.chip} repository={repository} />
-            <BuildBranchNameChip className={classes.chip} build={build} />
-            <BuildChangeChip className={classes.chip} build={build} />
-            <TaskNameChip className={classes.chip} task={task} />
-          </div>
-          <div className={classes.wrapper}>
-            <TaskCreatedChip className={classes.chip} task={task} />
-            <TaskScheduledChip className={classes.chip} task={task} />
-            <TaskStatusChip className={classes.chip} task={task} />
+            <div className={classes.wrapper} style={{ flexGrow: 1 }}>
+              <TaskCreatedChip className={classes.chip} task={task} />
+              <TaskScheduledChip className={classes.chip} task={task} />
+              <TaskStatusChip className={classes.chip} task={task} />
+            </div>
+            <Tooltip title="Debugging View" sx={{ display: isFinalStatus ? null : 'none' }}>
+              <Badge variant="dot" color="warning" invisible={hasNoAgentNotifications}>
+                <ToggleButton value="bug" onClick={toggleDisplayDebugInfo} selected={displayDebugInfo}>
+                  <BugReport />
+                </ToggleButton>
+              </Badge>
+            </Tooltip>
           </div>
           <div className={classes.wrapper}>
             <TaskRerunnerChip className={classes.chip} task={task} />
             <TaskCancellerChip className={classes.chip} task={task} />
           </div>
+          <div className={classes.gap} />
           <TaskCommandsProgress className={classes.progress} task={task} />
           <div className={classes.gap} />
-          <Typography variant="h6" gutterBottom>
-            {build.changeMessageTitle} (commit{' '}
-            <a href={commitUrl} target="_blank" rel="noopener noreferrer">
-              {build.changeIdInRepo.substr(0, 7)}
-            </a>{' '}
-            on branch{' '}
-            <a href={branchUrl} target="_blank" rel="noopener noreferrer">
-              {build.branch}
-            </a>
-            )
-          </Typography>
+          <CommitMessage
+            cloneUrl={repository.cloneUrl}
+            branch={build.branch}
+            changeIdInRepo={build.changeIdInRepo}
+            changeMessageTitle={build.changeMessageTitle}
+          />
           <div className={classes.gap} />
           <div className={classNames('card-body', classes.wrapper)}>
             {task.automaticReRun ? (
@@ -558,18 +641,16 @@ function TaskDetails(props: Props, context) {
             <TaskTimeoutChip className={classes.chip} task={task} />
             <TaskStatefulChip className={classes.chip} task={task} />
             <TaskResourcesChip className={classes.chip} task={task} />
-            {task.labels.filter(desiredLabel).map(label => {
-              return (
-                <Tooltip key={label} title={label}>
-                  <Chip className={classes.chip} label={shorten(label)} />
-                </Tooltip>
-              );
-            })}
+            {taskLabels}
           </div>
           <ExecutionInfo task={task} />
         </CardContent>
-        <CardActions className="d-flex flex-wrap justify-content-end">
-          <Button variant="contained" onClick={e => navigateBuild(history, e, task.buildId)} startIcon={<ArrowBack />}>
+        <CardActions sx={{ justifyContent: 'flex-end' }}>
+          <Button
+            variant="contained"
+            onClick={e => navigateBuildHelper(navigate, e, task.buildId)}
+            startIcon={<ArrowBack />}
+          >
             View All Tasks
           </Button>
           {abortButton}
@@ -580,6 +661,12 @@ function TaskDetails(props: Props, context) {
         </CardActions>
       </Card>
       {notificationsComponent}
+      <Collapse in={displayDebugInfo} unmountOnExit={true}>
+        <div className={classes.gap} />
+        <Suspense fallback={<CirrusLinearProgress />}>
+          <TaskDebuggingInformation taskId={task.id} />
+        </Suspense>
+      </Collapse>
       <Collapse in={shouldRunTerminal}>
         <div className={classes.gap} />
         <Accordion defaultExpanded={true}>
@@ -597,95 +684,7 @@ function TaskDetails(props: Props, context) {
       {allOtherRuns ? <div className={classes.gap} /> : null}
       {allOtherRuns}
       <div className={classes.gap} />
-      <Paper elevation={2}>{tabbedCommandsAndHooks}</Paper>
+      <Paper elevation={24}>{tabbedCommandsAndHooks}</Paper>
     </div>
   );
 }
-
-export default createFragmentContainer(withStyles(styles)(withRouter(TaskDetails)), {
-  task: graphql`
-    fragment TaskDetails_task on Task {
-      id
-      name
-      buildId
-      status
-      triggerType
-      automaticReRun
-      ...TaskNameChip_task
-      ...TaskCreatedChip_task
-      ...TaskScheduledChip_task
-      ...TaskStatusChip_task
-      commands {
-        name
-      }
-      ...TaskCommandsProgress_task
-      ...TaskCommandList_task
-      ...TaskArtifacts_task
-      ...TaskTransactionChip_task
-      ...TaskOptionalChip_task
-      ...TaskResourcesChip_task
-      ...TaskExperimentalChip_task
-      ...TaskTimeoutChip_task
-      ...TaskStatefulChip_task
-      ...TaskOptionalChip_task
-      ...TaskRerunnerChip_task
-      ...TaskCancellerChip_task
-      labels
-      artifacts {
-        name
-      }
-      notifications {
-        message
-        ...Notification_notification
-      }
-      build {
-        branch
-        changeIdInRepo
-        changeMessageTitle
-        viewerPermission
-        ...BuildBranchNameChip_build
-        ...BuildChangeChip_build
-      }
-      repository {
-        cloneUrl
-        ...RepositoryOwnerChip_repository
-        ...RepositoryNameChip_repository
-      }
-      allOtherRuns {
-        id
-        localGroupId
-        requiredGroups
-        scheduledTimestamp
-        executingTimestamp
-        finalStatusTimestamp
-        ...TaskListRow_task
-      }
-      dependencies {
-        id
-        localGroupId
-        requiredGroups
-        scheduledTimestamp
-        executingTimestamp
-        finalStatusTimestamp
-        ...TaskListRow_task
-      }
-      ...TaskExecutionInfo_task
-      hooks {
-        timestamp
-        ...HookListRow_hook
-      }
-      executionInfo {
-        cacheRetrievalAttempts {
-          hits {
-            key
-            valid
-          }
-        }
-      }
-      terminalCredential {
-        locator
-        trustedSecret
-      }
-    }
-  `,
-});

@@ -1,41 +1,55 @@
 import React, { useState } from 'react';
-import { RouteComponentProps, withRouter } from 'react-router-dom';
 
-import TableCell from '@material-ui/core/TableCell';
-import TableRow from '@material-ui/core/TableRow';
-import Chip from '@material-ui/core/Chip';
-import { createFragmentContainer } from 'react-relay';
+import TableCell from '@mui/material/TableCell';
+import TableRow from '@mui/material/TableRow';
+import Chip from '@mui/material/Chip';
+import { useFragment } from 'react-relay';
 import { graphql } from 'babel-plugin-relay/macro';
-import { withStyles, WithStyles } from '@material-ui/core/styles';
-import ReportIcon from '@material-ui/icons/Report';
-import SendIcon from '@material-ui/icons/Send';
+import { makeStyles } from '@mui/styles';
+import ReportIcon from '@mui/icons-material/Report';
+import SendIcon from '@mui/icons-material/Send';
 import classNames from 'classnames';
 import DeliveryInfoDialog from './DeliveryInfoDialog';
-import { DeliveryRow_delivery } from './__generated__/DeliveryRow_delivery.graphql';
-import Avatar from '@material-ui/core/Avatar';
-import { useTheme } from '@material-ui/core';
+import { DeliveryRow_delivery$key } from './__generated__/DeliveryRow_delivery.graphql';
+import Avatar from '@mui/material/Avatar';
+import { useTheme } from '@mui/material';
 
-const styles = {
-  chip: {
-    marginTop: 4,
-    marginBottom: 4,
-    marginLeft: 4,
-  },
-  cell: {
-    padding: 0,
-    height: '100%',
-  },
-};
+const useStyles = makeStyles(theme => {
+  return {
+    chip: {
+      marginTop: 4,
+      marginBottom: 4,
+      marginLeft: 4,
+    },
+    cell: {
+      padding: 0,
+      height: '100%',
+    },
+  };
+});
 
-interface Props extends WithStyles<typeof styles>, RouteComponentProps {
-  delivery: DeliveryRow_delivery;
+interface Props {
+  delivery: DeliveryRow_delivery$key;
 }
 
-function DeliveryRow(props: Props) {
+export default function DeliveryRow(props: Props) {
+  let delivery = useFragment(
+    graphql`
+      fragment DeliveryRow_delivery on WebHookDelivery {
+        id
+        timestamp
+        response {
+          status
+        }
+      }
+    `,
+    props.delivery,
+  );
+
   let [showDetails, setShowDetails] = useState(false);
   let theme = useTheme();
 
-  let { delivery, classes } = props;
+  let classes = useStyles();
 
   let success = 200 <= delivery.response.status && delivery.response.status < 300;
   let statusColor = success ? theme.palette.success.main : theme.palette.error.main;
@@ -66,15 +80,3 @@ function DeliveryRow(props: Props) {
     </TableRow>
   );
 }
-
-export default createFragmentContainer(withStyles(styles)(withRouter(DeliveryRow)), {
-  delivery: graphql`
-    fragment DeliveryRow_delivery on WebHookDelivery {
-      id
-      timestamp
-      response {
-        status
-      }
-    }
-  `,
-});

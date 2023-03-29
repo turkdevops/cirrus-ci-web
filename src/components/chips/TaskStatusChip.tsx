@@ -1,23 +1,34 @@
 import React from 'react';
 
-import Avatar from '@material-ui/core/Avatar';
-import Chip from '@material-ui/core/Chip';
-import Icon from '@material-ui/core/Icon';
-import Tooltip from '@material-ui/core/Tooltip';
+import Avatar from '@mui/material/Avatar';
+import Chip from '@mui/material/Chip';
+import Icon from '@mui/material/Icon';
+import Tooltip from '@mui/material/Tooltip';
 import { useTaskStatusColor } from '../../utils/colors';
 import { taskStatusIconName, taskStatusMessage } from '../../utils/status';
-import { createFragmentContainer } from 'react-relay';
+import { useFragment } from 'react-relay';
 import { graphql } from 'babel-plugin-relay/macro';
-import { TaskStatusChip_task } from './__generated__/TaskStatusChip_task.graphql';
-import { useTheme } from '@material-ui/core';
+import { TaskStatusChip_task$key } from './__generated__/TaskStatusChip_task.graphql';
+import { useTheme } from '@mui/material';
 
 interface Props {
-  task: TaskStatusChip_task;
+  task: TaskStatusChip_task$key;
   className?: string;
 }
 
-function TaskStatusChip(props: Props) {
-  let { task, className } = props;
+export default function TaskStatusChip(props: Props) {
+  let task = useFragment(
+    graphql`
+      fragment TaskStatusChip_task on Task {
+        status
+        durationInSeconds
+        executingTimestamp
+      }
+    `,
+    props.task,
+  );
+
+  let { className } = props;
   let theme = useTheme();
   let chip = (
     <Chip
@@ -37,13 +48,3 @@ function TaskStatusChip(props: Props) {
   }
   return chip;
 }
-
-export default createFragmentContainer(TaskStatusChip, {
-  task: graphql`
-    fragment TaskStatusChip_task on Task {
-      status
-      durationInSeconds
-      executingTimestamp
-    }
-  `,
-});

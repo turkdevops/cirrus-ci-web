@@ -1,23 +1,23 @@
 import { graphql } from 'babel-plugin-relay/macro';
 import React, { useState } from 'react';
-import { createFragmentContainer } from 'react-relay';
-import { createStyles, WithStyles, withStyles } from '@material-ui/core/styles';
+import { useFragment } from 'react-relay';
+import { makeStyles } from '@mui/styles';
 import RepositoryMetricsCharts from './RepositoryMetricsCharts';
-import Card from '@material-ui/core/Card';
-import CardContent from '@material-ui/core/CardContent';
-import FormControl from '@material-ui/core/FormControl';
-import InputLabel from '@material-ui/core/InputLabel';
-import Select from '@material-ui/core/Select';
-import Input from '@material-ui/core/Input';
-import MenuItem from '@material-ui/core/MenuItem';
-import Typography from '@material-ui/core/Typography';
-import Grid from '@material-ui/core/Grid';
-import { RepositoryMetricsPage_repository } from './__generated__/RepositoryMetricsPage_repository.graphql';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Select from '@mui/material/Select';
+import Input from '@mui/material/Input';
+import MenuItem from '@mui/material/MenuItem';
+import Typography from '@mui/material/Typography';
+import Grid from '@mui/material/Grid';
+import { RepositoryMetricsPage_repository$key } from './__generated__/RepositoryMetricsPage_repository.graphql';
 import { MetricsQueryParameters } from './__generated__/RepositoryMetricsChartsQuery.graphql';
 import { Helmet as Head } from 'react-helmet';
 
-const styles = theme =>
-  createStyles({
+const useStyles = makeStyles(theme => {
+  return {
     title: { 'text-align': 'center' },
     settingGap: {
       paddingTop: 16,
@@ -26,15 +26,27 @@ const styles = theme =>
       margin: theme.spacing(1),
       minWidth: 180,
     },
-  });
+  };
+});
 
-interface Props extends WithStyles<typeof styles> {
-  repository: RepositoryMetricsPage_repository;
+interface Props {
+  repository: RepositoryMetricsPage_repository$key;
 }
 
-function RepositoryMetricsPage(props: Props) {
+export default function RepositoryMetricsPage(props: Props) {
+  let repository = useFragment(
+    graphql`
+      fragment RepositoryMetricsPage_repository on Repository {
+        id
+        owner
+        name
+      }
+    `,
+    props.repository,
+  );
+
   let [parameters, setParameters] = useState<MetricsQueryParameters>({});
-  let { repository, classes } = props;
+  let classes = useStyles();
 
   function handleChange(event) {
     setParameters({
@@ -50,12 +62,12 @@ function RepositoryMetricsPage(props: Props) {
           {repository.owner}/{repository.name}'s Metrics - Cirrus CI
         </title>
       </Head>
-      <Card>
+      <Card elevation={24}>
         <CardContent>
           <Typography gutterBottom variant="h5" component="h2" className={classes.title}>
-            {repository.owner}/{repository.name}'s Metrics
+            Metrics for repository: {repository.name}
           </Typography>
-          <Grid container direction="row" justify="center">
+          <Grid container direction="row" justifyContent="center">
             <FormControl className={classes.formControl}>
               <InputLabel htmlFor="type-helper">Instance Type</InputLabel>
               <Select
@@ -137,13 +149,3 @@ function cleanEmptyOrNullValues(obj) {
   }
   return result;
 }
-
-export default createFragmentContainer(withStyles(styles)(RepositoryMetricsPage), {
-  repository: graphql`
-    fragment RepositoryMetricsPage_repository on Repository {
-      id
-      owner
-      name
-    }
-  `,
-});

@@ -1,36 +1,49 @@
 import React from 'react';
 
-import { QueryRenderer } from 'react-relay';
 import { graphql } from 'babel-plugin-relay/macro';
+import { useLazyLoadQuery } from 'react-relay';
 
-import environment from '../../createRelayEnvironment';
-import CirrusLinearProgress from '../../components/common/CirrusLinearProgress';
 import NotFound from '../NotFound';
 import RepositoryMetricsPage from '../../components/metrics/RepositoryMetricsPage';
 import { RepositoryMetricsQuery } from './__generated__/RepositoryMetricsQuery.graphql';
-import { RouteComponentProps, withRouter } from 'react-router';
+import { useParams } from 'react-router-dom';
+import AppBreadcrumbs from '../../components/common/AppBreadcrumbs';
+import TimelineIcon from '@mui/icons-material/Timeline';
 
-interface Props extends RouteComponentProps<{ owner: 'owner'; name: 'name' }> {}
+export default function RepositoryMetrics(parentProps): JSX.Element {
+  const { platform, owner, name } = useParams();
 
-export default withRouter((parentProps: Props) => (
-  <QueryRenderer<RepositoryMetricsQuery>
-    environment={environment}
-    variables={parentProps.match.params}
-    query={graphql`
-      query RepositoryMetricsQuery($owner: String!, $name: String!) {
-        githubRepository(owner: $owner, name: $name) {
+  const response = useLazyLoadQuery<RepositoryMetricsQuery>(
+    graphql`
+      query RepositoryMetricsQuery($platform: String!, $owner: String!, $name: String!) {
+        ownerRepository(platform: $platform, owner: $owner, name: $name) {
+          ...AppBreadcrumbs_repository
           ...RepositoryMetricsPage_repository
         }
+        viewer {
+          ...AppBreadcrumbs_viewer
+        }
       }
-    `}
-    render={({ error, props }) => {
-      if (!props) {
-        return <CirrusLinearProgress />;
-      }
-      if (!props.githubRepository) {
-        return <NotFound message={error} />;
-      }
-      return <RepositoryMetricsPage repository={props.githubRepository} {...parentProps} />;
-    }}
-  />
-));
+    `,
+    { platform, owner, name },
+  );
+
+  if (!response.ownerRepository) {
+    return <NotFound />;
+  }
+  return (
+    <>
+      <AppBreadcrumbs
+        repository={response.ownerRepository}
+        viewer={response.viewer}
+        extraCrumbs={[
+          {
+            name: 'Metrics',
+            Icon: TimelineIcon,
+          },
+        ]}
+      />
+      <RepositoryMetricsPage repository={response.ownerRepository} {...parentProps} />
+    </>
+  );
+}

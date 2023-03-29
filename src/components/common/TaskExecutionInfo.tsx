@@ -1,32 +1,63 @@
-import { createFragmentContainer } from 'react-relay';
+import { useFragment } from 'react-relay';
 import { graphql } from 'babel-plugin-relay/macro';
 import React from 'react';
-import { withStyles, WithStyles } from '@material-ui/core/styles';
-import Chip from '@material-ui/core/Chip';
-import Typography from '@material-ui/core/Typography';
+import { makeStyles } from '@mui/styles';
+import Chip from '@mui/material/Chip';
+import Typography from '@mui/material/Typography';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, YAxis } from 'recharts';
-import { TaskExecutionInfo_task } from './__generated__/TaskExecutionInfo_task.graphql';
+import { TaskExecutionInfo_task$key } from './__generated__/TaskExecutionInfo_task.graphql';
 import { formatDuration } from '../../utils/time';
-import { useTheme } from '@material-ui/core';
+import { Box, useTheme } from '@mui/material';
 import { useRecoilState } from 'recoil';
 import { prefersDarkModeState } from '../../cirrusTheme';
 
-let styles = {
-  chip: {
-    marginTop: 4,
-    marginBottom: 4,
-    marginRight: 4,
-  },
-};
+const useStyles = makeStyles(theme => {
+  return {
+    chip: {
+      marginTop: 4,
+      marginBottom: 4,
+      marginRight: 4,
+    },
+  };
+});
 
-interface Props extends WithStyles<typeof styles> {
-  task: TaskExecutionInfo_task;
+interface Props {
+  task: TaskExecutionInfo_task$key;
 }
 
-function TaskExecutionInfo(props: Props) {
+export default function TaskExecutionInfo(props: Props) {
+  let task = useFragment(
+    graphql`
+      fragment TaskExecutionInfo_task on Task {
+        instanceResources {
+          cpu
+          memory
+        }
+        executionInfo {
+          labels
+          cpuChart {
+            maxValue
+            points {
+              value
+              secondsFromStart
+            }
+          }
+          memoryChart {
+            maxValue
+            points {
+              value
+              secondsFromStart
+            }
+          }
+        }
+      }
+    `,
+    props.task,
+  );
+
   let theme = useTheme();
   const [prefersDarkMode] = useRecoilState(prefersDarkModeState);
-  let { task, classes } = props;
+  let classes = useStyles();
 
   if (!task.executionInfo) return null;
 
@@ -45,11 +76,11 @@ function TaskExecutionInfo(props: Props) {
       };
     });
     return (
-      <div className="col">
-        <Typography variant="h6" align="center" className="align-middle">
+      <Box sx={{ flexDirection: 'column', justifyContent: 'center', width: '100%' }}>
+        <Typography variant="h6" align="center">
           CPU Usage
         </Typography>
-        <ResponsiveContainer height={200} width="100%">
+        <ResponsiveContainer debounce={300} height={200} width="100%">
           <AreaChart data={chartPoints}>
             <YAxis type="number" domain={[0, requestedCPU]} hide />
             <CartesianGrid stroke={null} fill={prefersDarkMode ? theme.palette.info.dark : theme.palette.info.light} />
@@ -65,7 +96,7 @@ function TaskExecutionInfo(props: Props) {
             />
           </AreaChart>
         </ResponsiveContainer>
-      </div>
+      </Box>
     );
   }
 
@@ -93,11 +124,11 @@ function TaskExecutionInfo(props: Props) {
       }
     });
     return (
-      <div className="col">
-        <Typography variant="h6" align="center" className="align-middle">
+      <Box sx={{ flexDirection: 'column', justifyContent: 'center', width: '100%' }}>
+        <Typography variant="h6" align="center">
           Memory Usage ({memoryUnit})
         </Typography>
-        <ResponsiveContainer height={200} width="100%">
+        <ResponsiveContainer debounce={300} height={200} width="100%">
           <AreaChart data={chartPoints}>
             <YAxis type="number" domain={[0, memoryUnit === 'Gb' ? requestedMemory / 1024 : requestedMemory]} hide />
             <CartesianGrid stroke={null} fill={prefersDarkMode ? theme.palette.info.dark : theme.palette.info.light} />
@@ -113,47 +144,19 @@ function TaskExecutionInfo(props: Props) {
             />
           </AreaChart>
         </ResponsiveContainer>
-      </div>
+      </Box>
     );
   }
 
   return (
-    <div>
+    <div style={{ width: '100%' }}>
       {task.executionInfo.labels.map(label => {
         return <Chip key={label} className={classes.chip} label={label} />;
       })}
-      <div className="row">
+      <Box sx={{ flexDirection: 'row', display: 'flex' }}>
         {renderCPUChart()}
         {renderMemoryChart()}
-      </div>
+      </Box>
     </div>
   );
 }
-
-export default createFragmentContainer(withStyles(styles)(TaskExecutionInfo), {
-  task: graphql`
-    fragment TaskExecutionInfo_task on Task {
-      instanceResources {
-        cpu
-        memory
-      }
-      executionInfo {
-        labels
-        cpuChart {
-          maxValue
-          points {
-            value
-            secondsFromStart
-          }
-        }
-        memoryChart {
-          maxValue
-          points {
-            value
-            secondsFromStart
-          }
-        }
-      }
-    }
-  `,
-});

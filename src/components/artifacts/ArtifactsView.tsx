@@ -1,35 +1,39 @@
 import React, { useState } from 'react';
-import Typography from '@material-ui/core/Typography';
-import { withStyles, WithStyles } from '@material-ui/core/styles';
-import List from '@material-ui/core/List';
-import ListItem from '@material-ui/core/ListItem';
-import ListItemIcon from '@material-ui/core/ListItemIcon';
-import ListItemText from '@material-ui/core/ListItemText';
-import IconButton from '@material-ui/core/IconButton';
-import Toolbar from '@material-ui/core/Toolbar';
-import Tooltip from '@material-ui/core/Tooltip';
-import Paper from '@material-ui/core/Paper';
-import { navigate } from '../../utils/navigate';
-import { TaskArtifacts_task } from './__generated__/TaskArtifacts_task.graphql';
-import Folder from '@material-ui/icons/Folder';
-import InsertDriveFile from '@material-ui/icons/InsertDriveFile';
-import GetApp from '@material-ui/icons/GetApp';
-import FolderOpen from '@material-ui/icons/FolderOpen';
-import ViewList from '@material-ui/icons/ViewList';
-import AccountTree from '@material-ui/icons/AccountTree';
-import ToggleButton from '@material-ui/lab/ToggleButton';
-import ToggleButtonGroup from '@material-ui/lab/ToggleButtonGroup';
-import { useHistory } from 'react-router-dom';
+import Typography from '@mui/material/Typography';
+import { makeStyles } from '@mui/styles';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import IconButton from '@mui/material/IconButton';
+import Toolbar from '@mui/material/Toolbar';
+import Tooltip from '@mui/material/Tooltip';
+import Paper from '@mui/material/Paper';
+import { navigateHelper } from '../../utils/navigateHelper';
+import { ArtifactsView_task$key } from './__generated__/ArtifactsView_task.graphql';
+import Folder from '@mui/icons-material/Folder';
+import InsertDriveFile from '@mui/icons-material/InsertDriveFile';
+import GetApp from '@mui/icons-material/GetApp';
+import FolderOpen from '@mui/icons-material/FolderOpen';
+import ViewList from '@mui/icons-material/ViewList';
+import AccountTree from '@mui/icons-material/AccountTree';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import { useNavigate } from 'react-router-dom';
+import { useFragment } from 'react-relay';
+import { graphql } from 'babel-plugin-relay/macro';
 
-const styles = {
-  title: {
-    display: 'flex',
-    flexGrow: 1,
-  },
-};
+const useStyles = makeStyles(theme => {
+  return {
+    title: {
+      display: 'flex',
+      flexGrow: 1,
+    },
+  };
+});
 
-interface Props extends WithStyles<typeof styles> {
-  task: TaskArtifacts_task;
+interface Props {
+  task: ArtifactsView_task$key;
 }
 
 interface SingleArtifactItemInfo {
@@ -39,14 +43,30 @@ interface SingleArtifactItemInfo {
   isTopLevel: boolean;
 }
 
-function ArtifactsView(props: Props) {
-  let history = useHistory();
+export default function ArtifactsView(props: Props) {
+  let task = useFragment(
+    graphql`
+      fragment ArtifactsView_task on Task {
+        id
+        artifacts {
+          name
+          files {
+            path
+            size
+          }
+        }
+      }
+    `,
+    props.task,
+  );
+
+  let navigate = useNavigate();
   let [selectedArtifactName, setSelectedArtifactName] = useState(null);
   let [selectedPath, setSelectedPath] = useState([]);
   let [isFolderView, setFolderView] = useState(true);
 
   let artifactURL = (name: string) => {
-    let allURLParts = ['https://api.cirrus-ci.com/v1/artifact/task', props.task.id, selectedArtifactName].concat(
+    let allURLParts = ['https://api.cirrus-ci.com/v1/artifact/task', task.id, selectedArtifactName].concat(
       selectedPath,
     );
     allURLParts.push(name);
@@ -54,10 +74,10 @@ function ArtifactsView(props: Props) {
   };
 
   let artifactArchiveURL = (name: string) =>
-    ['https://api.cirrus-ci.com/v1/artifact/task', props.task.id, `${name}.zip`].join('/');
+    ['https://api.cirrus-ci.com/v1/artifact/task', task.id, `${name}.zip`].join('/');
 
   function getSelectedArtifact() {
-    for (let artifact of props.task.artifacts || []) {
+    for (let artifact of task.artifacts || []) {
       if (artifact.name && artifact.name === selectedArtifactName) {
         return artifact;
       }
@@ -73,6 +93,27 @@ function ArtifactsView(props: Props) {
       return selectedArtifactName;
     }
     return selectedArtifactName + '/' + selectedPath.join('/');
+  }
+
+  function bytesToHumanReadable(bytes: number): string {
+    if (bytes === 0) {
+      return '0 Bytes';
+    }
+
+    let divisor = 1024;
+    let suffixes = ['Bytes', 'KiB', 'MiB', 'GiB', 'TiB'];
+
+    let magnitude = Math.log(bytes) / Math.log(divisor);
+    magnitude |= 0;
+
+    if (magnitude >= suffixes.length) {
+      return "That's a big file!";
+    }
+
+    let size = bytes / Math.pow(divisor, magnitude);
+
+    let suffix = suffixes[magnitude];
+    return `${size.toFixed(2)} ${suffix}`;
   }
 
   function getScopedArtifactInfos(): SingleArtifactItemInfo[] {
@@ -101,7 +142,7 @@ function ArtifactsView(props: Props) {
     return results;
   }
 
-  let { task, classes } = props;
+  let classes = useStyles();
   let { artifacts } = task;
 
   let items = [];
@@ -136,7 +177,7 @@ function ArtifactsView(props: Props) {
           </ListItemIcon>
           <ListItemText primary={artifact.name} />
           <Tooltip title="Download All Files (.zip)">
-            <IconButton onClick={e => navigate(history, e, artifactArchiveURL(artifact.name))}>
+            <IconButton onClick={e => navigateHelper(navigate, e, artifactArchiveURL(artifact.name))} size="large">
               <GetApp />
             </IconButton>
           </Tooltip>
@@ -168,7 +209,7 @@ function ArtifactsView(props: Props) {
             <ListItemIcon>
               <InsertDriveFile />
             </ListItemIcon>
-            <ListItemText primary={info.path} />
+            <ListItemText primary={info.path} secondary={bytesToHumanReadable(info.size)} />
           </ListItem>,
         );
       }
@@ -176,7 +217,7 @@ function ArtifactsView(props: Props) {
   }
 
   return (
-    <Paper elevation={1}>
+    <Paper elevation={16}>
       <Toolbar className={classes.title}>
         <Typography variant="h6" color="inherit" className={classes.title}>
           {currentPath() || 'Artifacts'}
@@ -201,5 +242,3 @@ function ArtifactsView(props: Props) {
     </Paper>
   );
 }
-
-export default withStyles(styles)(ArtifactsView);

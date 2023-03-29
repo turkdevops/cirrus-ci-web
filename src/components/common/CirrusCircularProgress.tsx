@@ -1,8 +1,10 @@
 import React from 'react';
-import CircularProgress from '@material-ui/core/CircularProgress';
-import { useTheme } from '@material-ui/core';
+import CircularProgress from '@mui/material/CircularProgress';
+import { useTheme } from '@mui/material';
 
-export default () => {
+const CirrusCircularProgress = () => {
   let theme = useTheme();
   return <CircularProgress style={{ color: theme.palette.info.main }} />;
 };
+
+export default CirrusCircularProgress;

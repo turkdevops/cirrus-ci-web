@@ -1,45 +1,34 @@
 import React from 'react';
 
-import Avatar from '@material-ui/core/Avatar';
-import Chip from '@material-ui/core/Chip';
+import Avatar from '@mui/material/Avatar';
+import Chip from '@mui/material/Chip';
 
-import { createFragmentContainer } from 'react-relay';
+import { useFragment } from 'react-relay';
 import { graphql } from 'babel-plugin-relay/macro';
-import { Cancel } from '@material-ui/icons';
-import { TaskCancellerChip_task } from './__generated__/TaskCancellerChip_task.graphql';
+import { TaskCancellerChip_task$key } from './__generated__/TaskCancellerChip_task.graphql';
 
 interface Props {
-  task: TaskCancellerChip_task;
+  task: TaskCancellerChip_task$key;
   className?: string;
 }
 
-function TaskCancellerChip(props: Props) {
-  let { cancelledBy } = props.task;
+export default function TaskCancellerChip(props: Props) {
+  let task = useFragment(
+    graphql`
+      fragment TaskCancellerChip_task on Task {
+        cancelledBy {
+          avatarURL
+        }
+      }
+    `,
+    props.task,
+  );
+
+  let { cancelledBy } = task;
 
   if (!cancelledBy) return <></>;
 
   return (
-    <Chip
-      className={props.className}
-      label={'Cancelled by ' + cancelledBy.githubUserName}
-      avatar={
-        <Avatar>
-          <Cancel />
-        </Avatar>
-      }
-      onClick={() => {
-        window.open('https://github.com/' + cancelledBy.githubUserName);
-      }}
-    />
+    <Chip className={props.className} label="Cancelled by a user" avatar={<Avatar src={cancelledBy.avatarURL} />} />
   );
 }
-
-export default createFragmentContainer(TaskCancellerChip, {
-  task: graphql`
-    fragment TaskCancellerChip_task on Task {
-      cancelledBy {
-        githubUserName
-      }
-    }
-  `,
-});

@@ -1,21 +1,21 @@
-import Button from '@material-ui/core/Button';
-import Card from '@material-ui/core/Card';
-import CardActions from '@material-ui/core/CardActions';
-import CardContent from '@material-ui/core/CardContent';
-import FormControl from '@material-ui/core/FormControl';
-import FormControlLabel from '@material-ui/core/FormControlLabel';
-import FormHelperText from '@material-ui/core/FormHelperText';
-import MenuItem from '@material-ui/core/MenuItem';
-import Select from '@material-ui/core/Select';
-import Switch from '@material-ui/core/Switch';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import CardActions from '@mui/material/CardActions';
+import CardContent from '@mui/material/CardContent';
+import FormControl from '@mui/material/FormControl';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import FormHelperText from '@mui/material/FormHelperText';
+import MenuItem from '@mui/material/MenuItem';
+import Select from '@mui/material/Select';
+import Switch from '@mui/material/Switch';
 import { graphql } from 'babel-plugin-relay/macro';
 import React, { useState } from 'react';
-import { commitMutation, createFragmentContainer } from 'react-relay';
-import environment from '../../createRelayEnvironment';
-import { RepositorySettings_repository } from './__generated__/RepositorySettings_repository.graphql';
+import { useFragment, useMutation } from 'react-relay';
+import { RepositorySettings_repository$key } from './__generated__/RepositorySettings_repository.graphql';
 import {
-  RepositorySettingsInput,
+  RepositorySettingsMutation,
   RepositorySettingsMutationResponse,
+  RepositorySettingsMutationVariables,
 } from './__generated__/RepositorySettingsMutation.graphql';
 import {
   Checkbox,
@@ -27,31 +27,33 @@ import {
   ListItem,
   ListItemSecondaryAction,
   ListItemText,
-} from '@material-ui/core';
-import { AddCircle } from '@material-ui/icons';
-import DeleteIcon from '@material-ui/icons/Delete';
-
-const saveSettingsMutation = graphql`
-  mutation RepositorySettingsMutation($input: RepositorySettingsInput!) {
-    saveSettings(input: $input) {
-      settings {
-        needsApproval
-        decryptEnvironmentVariables
-        configResolutionStrategy
-        additionalEnvironment
-        cacheVersion
-      }
-    }
-  }
-`;
+} from '@mui/material';
+import { AddCircle } from '@mui/icons-material';
+import DeleteIcon from '@mui/icons-material/Delete';
 
 interface Props {
-  repository: RepositorySettings_repository;
+  repository: RepositorySettings_repository$key;
 }
 
-function RepositorySettings(props: Props) {
-  let [initialSettings, setInitialSettings] = useState(props.repository.settings);
-  let [settings, setSettings] = useState(props.repository.settings);
+export default function RepositorySettings(props: Props) {
+  let repository = useFragment(
+    graphql`
+      fragment RepositorySettings_repository on Repository {
+        id
+        settings {
+          needsApproval
+          decryptEnvironmentVariables
+          configResolutionStrategy
+          additionalEnvironment
+          cacheVersion
+        }
+      }
+    `,
+    props.repository,
+  );
+
+  let [initialSettings, setInitialSettings] = useState(repository.settings);
+  let [settings, setSettings] = useState(repository.settings);
   let [additionalEnvironmentToAdd, setAdditionalEnvironmentToAdd] = useState('');
 
   let changeField = field => {
@@ -97,21 +99,39 @@ function RepositorySettings(props: Props) {
     });
   };
 
+  const [commitSaveSettingsMutation] = useMutation<RepositorySettingsMutation>(graphql`
+    mutation RepositorySettingsMutation($input: RepositorySettingsInput!) {
+      saveSettings(input: $input) {
+        settings {
+          needsApproval
+          decryptEnvironmentVariables
+          configResolutionStrategy
+          additionalEnvironment
+          cacheVersion
+        }
+      }
+    }
+  `);
   function onSave() {
-    const input: RepositorySettingsInput = {
-      clientMutationId: 'save-settings-' + props.repository.id,
-      repositoryId: props.repository.id,
-      needsApproval: settings.needsApproval,
-      decryptEnvironmentVariables: settings.decryptEnvironmentVariables,
-      configResolutionStrategy: settings.configResolutionStrategy,
-      additionalEnvironment: settings.additionalEnvironment.concat(),
-      cacheVersion: settings.cacheVersion,
+    const variables: RepositorySettingsMutationVariables = {
+      input: {
+        clientMutationId: 'save-settings-' + repository.id,
+        repositoryId: repository.id,
+        needsApproval: settings.needsApproval,
+        decryptEnvironmentVariables: settings.decryptEnvironmentVariables,
+        configResolutionStrategy: settings.configResolutionStrategy,
+        additionalEnvironment: settings.additionalEnvironment.concat(),
+        cacheVersion: settings.cacheVersion,
+      },
     };
 
-    commitMutation(environment, {
-      mutation: saveSettingsMutation,
-      variables: { input },
-      onCompleted: (response: RepositorySettingsMutationResponse) => {
+    commitSaveSettingsMutation({
+      variables: variables,
+      onCompleted: (response: RepositorySettingsMutationResponse, errors) => {
+        if (errors) {
+          console.log(errors);
+          return;
+        }
         setInitialSettings(response.saveSettings.settings);
       },
       onError: err => console.error(err),
@@ -125,7 +145,7 @@ function RepositorySettings(props: Props) {
     settings.decryptEnvironmentVariables === initialSettings.decryptEnvironmentVariables &&
     settings.cacheVersion === initialSettings.cacheVersion;
   return (
-    <Card>
+    <Card elevation={24}>
       <CardContent>
         <FormControl style={{ width: '100%' }}>
           <FormControlLabel
@@ -140,8 +160,9 @@ function RepositorySettings(props: Props) {
             onChange={changeField('decryptEnvironmentVariables')}
             style={{ width: '100%' }}
           >
-            <MenuItem value={'EVERYONE'}>Everyone</MenuItem>
             <MenuItem value={'USERS_WITH_WRITE_PERMISSIONS'}>Only users with write permissions</MenuItem>
+            <MenuItem value={'COLLABORATORS'}>Collaborators, bots and users with write permissions</MenuItem>
+            <MenuItem value={'EVERYONE'}>Everyone</MenuItem>
           </Select>
         </FormControl>
         <FormControl style={{ width: '100%' }}>
@@ -163,7 +184,7 @@ function RepositorySettings(props: Props) {
               <ListItem key={line}>
                 <ListItemText primary={line} />
                 <ListItemSecondaryAction>
-                  <IconButton edge="end" aria-label="delete" onClick={() => deleteEnv(line)}>
+                  <IconButton edge="end" aria-label="delete" onClick={() => deleteEnv(line)} size="large">
                     <DeleteIcon />
                   </IconButton>
                 </ListItemSecondaryAction>
@@ -181,7 +202,7 @@ function RepositorySettings(props: Props) {
             onChange={event => setAdditionalEnvironmentToAdd(event.target.value)}
             endAdornment={
               <InputAdornment position="end">
-                <IconButton aria-label="add new env variable override" onClick={addNewEnvVariable}>
+                <IconButton aria-label="add new env variable override" onClick={addNewEnvVariable} size="large">
                   <AddCircle />
                 </IconButton>
               </InputAdornment>
@@ -205,18 +226,3 @@ function RepositorySettings(props: Props) {
     </Card>
   );
 }
-
-export default createFragmentContainer(RepositorySettings, {
-  repository: graphql`
-    fragment RepositorySettings_repository on Repository {
-      id
-      settings {
-        needsApproval
-        decryptEnvironmentVariables
-        configResolutionStrategy
-        additionalEnvironment
-        cacheVersion
-      }
-    }
-  `,
-});

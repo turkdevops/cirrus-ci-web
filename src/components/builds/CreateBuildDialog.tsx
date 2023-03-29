@@ -1,45 +1,61 @@
 import React, { useState } from 'react';
-import environment from '../../createRelayEnvironment';
-import { commitMutation, createFragmentContainer } from 'react-relay';
+import { useFragment, useMutation } from 'react-relay';
 import { graphql } from 'babel-plugin-relay/macro';
-import Button from '@material-ui/core/Button';
-import Dialog from '@material-ui/core/Dialog';
-import DialogActions from '@material-ui/core/DialogActions';
-import DialogContent from '@material-ui/core/DialogContent';
-import DialogContentText from '@material-ui/core/DialogContentText';
-import DialogTitle from '@material-ui/core/DialogTitle';
-import TextField from '@material-ui/core/TextField';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
+import TextField from '@mui/material/TextField';
 import AceEditor from 'react-ace';
-import { useHistory } from 'react-router-dom';
-import { navigateBuild } from '../../utils/navigate';
+import { useNavigate } from 'react-router-dom';
+import { navigateBuildHelper } from '../../utils/navigateHelper';
 
 import 'ace-builds/src-noconflict/mode-yaml';
 import 'ace-builds/src-noconflict/theme-github';
-import { CreateBuildDialog_repository } from './__generated__/CreateBuildDialog_repository.graphql';
-import { CreateBuildDialogMutationResponse } from './__generated__/CreateBuildDialogMutation.graphql';
-
-const createBuildMutation = graphql`
-  mutation CreateBuildDialogMutation($input: RepositoryCreateBuildInput!) {
-    createBuild(input: $input) {
-      build {
-        id
-      }
-    }
-  }
-`;
+import { CreateBuildDialog_repository$key } from './__generated__/CreateBuildDialog_repository.graphql';
+import {
+  CreateBuildDialogMutation,
+  CreateBuildDialogMutationResponse,
+  CreateBuildDialogMutationVariables,
+} from './__generated__/CreateBuildDialogMutation.graphql';
 
 interface Props {
   onClose: Function;
   open: boolean;
-  repository: CreateBuildDialog_repository;
+  repository: CreateBuildDialog_repository$key;
 }
 
-function CreateBuildDialog(props: Props) {
-  let history = useHistory();
-  let [branch, setBranch] = useState(props.repository.masterBranch);
+export default function CreateBuildDialog(props: Props) {
+  let repository = useFragment(
+    graphql`
+      fragment CreateBuildDialog_repository on Repository {
+        id
+        owner
+        name
+        masterBranch
+      }
+    `,
+    props.repository,
+  );
+
+  const [commitCreateBuildMutation] = useMutation<CreateBuildDialogMutation>(
+    graphql`
+      mutation CreateBuildDialogMutation($input: RepositoryCreateBuildInput!) {
+        createBuild(input: $input) {
+          build {
+            id
+          }
+        }
+      }
+    `,
+  );
+
+  let navigate = useNavigate();
+  let [branch, setBranch] = useState(repository.masterBranch);
   let [configOverride, setConfigOverride] = useState('');
   let [sha, setSHA] = useState('');
-  let { repository } = props;
 
   function handleClose() {
     if (props.onClose) {
@@ -48,24 +64,24 @@ function CreateBuildDialog(props: Props) {
   }
 
   function sendMutation() {
-    const variables = {
+    const variables: CreateBuildDialogMutationVariables = {
       input: {
-        clientMutationId: props.repository.name,
-        repositoryId: parseInt(props.repository.id, 10),
+        clientMutationId: repository.name,
+        repositoryId: repository.id,
         branch: branch,
         sha: sha,
         configOverride: configOverride,
       },
     };
 
-    console.log(variables);
-
-    commitMutation(environment, {
-      mutation: createBuildMutation,
+    commitCreateBuildMutation({
       variables: variables,
-      onCompleted: (response: CreateBuildDialogMutationResponse) => {
-        console.log(response);
-        navigateBuild(history, null, response.createBuild.build.id);
+      onCompleted: (response: CreateBuildDialogMutationResponse, errors) => {
+        if (errors) {
+          console.log(errors);
+          return;
+        }
+        navigateBuildHelper(navigate, null, response.createBuild.build.id);
       },
       onError: err => console.error(err),
     });
@@ -114,14 +130,3 @@ function CreateBuildDialog(props: Props) {
     </Dialog>
   );
 }
-
-export default createFragmentContainer(CreateBuildDialog, {
-  repository: graphql`
-    fragment CreateBuildDialog_repository on Repository {
-      id
-      owner
-      name
-      masterBranch
-    }
-  `,
-});

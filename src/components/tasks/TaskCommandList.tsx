@@ -1,40 +1,58 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 
 import { useCommandStatusColorMapping } from '../../utils/colors';
 import TaskCommandLogs from './TaskCommandLogs';
 import { formatDuration } from '../../utils/time';
 import { isTaskCommandExecuting, isTaskCommandFinalStatus } from '../../utils/status';
 import DurationTicker from '../common/DurationTicker';
-import { withStyles, WithStyles } from '@material-ui/core/styles';
-import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
-import Accordion from '@material-ui/core/Accordion';
-import AccordionDetails from '@material-ui/core/AccordionDetails';
-import AccordionSummary from '@material-ui/core/AccordionSummary';
-import Typography from '@material-ui/core/Typography';
-import { createFragmentContainer } from 'react-relay';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import Accordion from '@mui/material/Accordion';
+import AccordionDetails from '@mui/material/AccordionDetails';
+import AccordionSummary from '@mui/material/AccordionSummary';
+import Typography from '@mui/material/Typography';
+import { useFragment } from 'react-relay';
 import { graphql } from 'babel-plugin-relay/macro';
 import * as queryString from 'query-string';
-import { TaskCommandList_task } from './__generated__/TaskCommandList_task.graphql';
+import { TaskCommandList_task, TaskCommandList_task$key } from './__generated__/TaskCommandList_task.graphql';
 import { ItemOfArray } from '../../utils/utility-types';
 import { useLocation } from 'react-router-dom';
-import { createStyles } from '@material-ui/styles';
-import { Box, useTheme } from '@material-ui/core';
+import { makeStyles } from '@mui/styles';
+import { Box, useTheme } from '@mui/material';
 import { useRecoilValue } from 'recoil';
 import { prefersDarkModeState } from '../../cirrusTheme';
+import CirrusCircularProgress from '../common/CirrusCircularProgress';
 
-const styles = theme =>
-  createStyles({
+const useStyles = makeStyles(theme => {
+  return {
     details: {
       padding: 0,
     },
-  });
+  };
+});
 
-interface Props extends WithStyles<typeof styles> {
-  task: TaskCommandList_task;
+interface Props {
+  task: TaskCommandList_task$key;
 }
 
-function TaskCommandList(props: Props) {
-  let task = props.task;
+export default function TaskCommandList(props: Props) {
+  let task = useFragment(
+    graphql`
+      fragment TaskCommandList_task on Task {
+        id
+        status
+        executingTimestamp
+        commands {
+          name
+          type
+          status
+          durationInSeconds
+        }
+      }
+    `,
+    props.task,
+  );
+
+  let classes = useStyles();
   let commands = task.commands;
 
   let commandComponents = [];
@@ -77,11 +95,15 @@ function TaskCommandList(props: Props) {
     return (
       <Box
         key={command.name}
-        borderLeft={theme.spacing(prefersDarkMode ? 1.0 : 0.0)}
-        borderColor={colorMapping[command.status]}
+        sx={{
+          borderStyle: 'hidden hidden hidden solid',
+          borderWidth: theme.spacing(prefersDarkMode ? 1.0 : 0.0),
+          borderColor: colorMapping[command.status],
+        }}
       >
         <Accordion
           TransitionProps={{ unmountOnExit: true, timeout: 400 }}
+          style={{ backgroundColor: 'transparent' }}
           disabled={command.status === 'SKIPPED'}
           defaultExpanded={command.name === selectedCommandName || command.status === 'FAILURE'}
         >
@@ -101,8 +123,10 @@ function TaskCommandList(props: Props) {
               </Typography>
             </div>
           </AccordionSummary>
-          <AccordionDetails className={props.classes.details}>
-            <TaskCommandLogs taskId={props.task.id} command={command} />
+          <AccordionDetails className={classes.details}>
+            <Suspense fallback={<CirrusCircularProgress />}>
+              <TaskCommandLogs taskId={task.id} command={command} />
+            </Suspense>
           </AccordionDetails>
         </Accordion>
       </Box>
@@ -116,19 +140,3 @@ function TaskCommandList(props: Props) {
   }
   return <div>{commandComponents}</div>;
 }
-
-export default createFragmentContainer(withStyles(styles)(TaskCommandList), {
-  task: graphql`
-    fragment TaskCommandList_task on Task {
-      id
-      status
-      executingTimestamp
-      commands {
-        name
-        type
-        status
-        durationInSeconds
-      }
-    }
-  `,
-});

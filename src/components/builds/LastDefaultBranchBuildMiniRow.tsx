@@ -1,16 +1,15 @@
-import React, { useEffect } from 'react';
-import { createFragmentContainer, requestSubscription } from 'react-relay';
+import React, { useMemo } from 'react';
+import { useFragment, useSubscription } from 'react-relay';
 import { graphql } from 'babel-plugin-relay/macro';
-import environment from '../../createRelayEnvironment';
-import TableCell from '@material-ui/core/TableCell';
-import TableRow from '@material-ui/core/TableRow';
-import { createStyles, withStyles, WithStyles } from '@material-ui/core/styles';
-import { navigateBuild } from '../../utils/navigate';
+import TableCell from '@mui/material/TableCell';
+import TableRow from '@mui/material/TableRow';
+import { makeStyles } from '@mui/styles';
+import { navigateBuildHelper } from '../../utils/navigateHelper';
 import RepositoryNameChip from '../chips/RepositoryNameChip';
 import BuildStatusChip from '../chips/BuildStatusChip';
-import Typography from '@material-ui/core/Typography';
-import { LastDefaultBranchBuildMiniRow_repository } from './__generated__/LastDefaultBranchBuildMiniRow_repository.graphql';
-import { useHistory } from 'react-router-dom';
+import { LastDefaultBranchBuildMiniRow_repository$key } from './__generated__/LastDefaultBranchBuildMiniRow_repository.graphql';
+import { useNavigate } from 'react-router-dom';
+import MarkdownTypography from '../common/MarkdownTypography';
 
 const buildSubscription = graphql`
   subscription LastDefaultBranchBuildMiniRowSubscription($repositoryID: ID!) {
@@ -20,8 +19,8 @@ const buildSubscription = graphql`
   }
 `;
 
-const styles = theme =>
-  createStyles({
+const useStyles = makeStyles(theme => {
+  return {
     chip: {
       margin: theme.spacing(1.0),
     },
@@ -29,28 +28,41 @@ const styles = theme =>
       margin: theme.spacing(1.0),
       width: '100%',
     },
-  });
+  };
+});
 
-interface Props extends WithStyles<typeof styles> {
-  repository: LastDefaultBranchBuildMiniRow_repository;
+interface Props {
+  repository: LastDefaultBranchBuildMiniRow_repository$key;
 }
 
-function LastDefaultBranchBuildRow(props: Props) {
-  useEffect(() => {
-    let variables = { repositoryID: props.repository.id };
+export default function LastDefaultBranchBuildRow(props: Props) {
+  let repository = useFragment(
+    graphql`
+      fragment LastDefaultBranchBuildMiniRow_repository on Repository {
+        id
+        lastDefaultBranchBuild {
+          id
+          changeMessageTitle
+          ...BuildStatusChip_build
+        }
+        ...RepositoryNameChip_repository
+      }
+    `,
+    props.repository,
+  );
 
-    const subscription = requestSubscription(environment, {
+  const buildSubscriptionConfig = useMemo(
+    () => ({
+      variables: { repositoryID: repository.id },
       subscription: buildSubscription,
-      variables: variables,
-    });
-    return () => {
-      subscription.dispose();
-    };
-  }, [props.repository.id]);
+    }),
+    [repository.id],
+  );
+  useSubscription(buildSubscriptionConfig);
 
-  let history = useHistory();
+  let navigate = useNavigate();
 
-  let { classes, repository } = props;
+  let classes = useStyles();
   let build = repository.lastDefaultBranchBuild;
   if (!build) {
     return null;
@@ -58,39 +70,19 @@ function LastDefaultBranchBuildRow(props: Props) {
   return (
     <TableRow
       key={repository.id}
-      onClick={e => navigateBuild(history, e, build.id)}
+      onClick={e => navigateBuildHelper(navigate, e, build.id)}
       hover={true}
       style={{ cursor: 'pointer' }}
     >
       <TableCell style={{ padding: 0 }}>
-        <div className="d-flex justify-content-between">
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
           <RepositoryNameChip repository={repository} fullName={true} className={classes.chip} />
           <BuildStatusChip build={build} mini={true} className={classes.chip} />
         </div>
         <div className={classes.message}>
-          <Typography variant="body1" color="inherit">
-            {build.changeMessageTitle}
-          </Typography>
+          <MarkdownTypography text={build.changeMessageTitle} variant="body1" color="inherit" />
         </div>
       </TableCell>
     </TableRow>
   );
 }
-
-export default createFragmentContainer(withStyles(styles)(LastDefaultBranchBuildRow), {
-  repository: graphql`
-    fragment LastDefaultBranchBuildMiniRow_repository on Repository {
-      id
-      owner
-      name
-      lastDefaultBranchBuild {
-        id
-        branch
-        changeMessageTitle
-        status
-        ...BuildStatusChip_build
-      }
-      ...RepositoryNameChip_repository
-    }
-  `,
-});

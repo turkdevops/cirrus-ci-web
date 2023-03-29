@@ -9,6 +9,16 @@ body {
   font-size: 14px;
 }
 
+/* workaround for https://github.com/mui-org/material-ui/issues/29819 */
+.MuiCardActions-spacing > :not(:first-child) {
+  margin-left: 8px;
+}
+
+/* hide graphiql theme settings */
+.graphiql-dialog-header + .graphiql-dialog-section:not(:last-child) {
+  display: none !important;
+}
+
 .card-text {
   white-space: normal;
 }

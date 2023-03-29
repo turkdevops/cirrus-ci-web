@@ -2,12 +2,12 @@ import React from 'react';
 import { Bar, BarChart, Rectangle, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useBuildStatusColorMapping } from '../../utils/colors';
 import { formatDuration } from '../../utils/time';
-import { navigateBuild } from '../../utils/navigate';
+import { navigateBuildHelper } from '../../utils/navigateHelper';
 import { NodeOfConnection, UnspecifiedCallbackFunction } from '../../utils/utility-types';
 import { RepositoryBuildList_repository } from '../repositories/__generated__/RepositoryBuildList_repository.graphql';
-import { withStyles } from '@material-ui/styles';
-import { useHistory } from 'react-router-dom';
-import { Paper, Typography } from '@material-ui/core';
+import { withStyles } from '@mui/styles';
+import { useNavigate } from 'react-router-dom';
+import { Paper, Typography } from '@mui/material';
 
 interface Props {
   builds: NodeOfConnection<RepositoryBuildList_repository['builds']>[];
@@ -16,10 +16,10 @@ interface Props {
 }
 
 function BuildDurationsChart(props: Props) {
-  let history = useHistory();
+  let navigate = useNavigate();
   let statusColorMapping = useBuildStatusColorMapping();
   let { builds, selectedBuildId, onSelectBuildId } = props;
-  let maxDuration = Math.max(...builds.map(build => build.durationInSeconds || 0));
+  let maxDuration = Math.max(...builds.map(build => build.clockDurationInSeconds || 0));
   let ticks = [0];
   for (let nextTick = 60; nextTick < maxDuration; nextTick += 60) {
     ticks.push(nextTick);
@@ -50,7 +50,7 @@ function BuildDurationsChart(props: Props) {
           y={y - sign * 2}
           height={height + sign * 2}
           fill={statusColorMapping[props.status]}
-          classbaName="recharts-bar-rectangle"
+          className="recharts-bar-rectangle"
         />
       );
     }
@@ -58,16 +58,16 @@ function BuildDurationsChart(props: Props) {
   }
 
   return (
-    <ResponsiveContainer height="100%" width="100%">
+    <ResponsiveContainer debounce={300} height="100%" width="100%">
       <BarChart data={builds}>
-        <YAxis dataKey="durationInSeconds" tickFormatter={formatDuration} ticks={ticks} />
+        <YAxis dataKey="clockDurationInSeconds" tickFormatter={formatDuration} ticks={ticks} />
         <XAxis dataKey="changeMessageTitle" hide />
         <Tooltip cursor={false} content={BuildDurationsChartTooltip} />
         <Bar
-          dataKey="durationInSeconds"
+          dataKey="clockDurationInSeconds"
           isAnimationActive={false}
           shape={props => renderBuildBar(props, selectedBuildId)}
-          onClick={(build, index, event) => navigateBuild(history, event, build.id)}
+          onClick={(build, index, event) => navigateBuildHelper(navigate, event, build.id)}
           onMouseEnter={entry => onSelectBuildId(entry.id)}
           onMouseLeave={() => onSelectBuildId('0')}
         />

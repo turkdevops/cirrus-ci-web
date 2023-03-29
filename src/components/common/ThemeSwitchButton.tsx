@@ -1,18 +1,18 @@
 import React from 'react';
 import { prefersDarkModeState } from '../../cirrusTheme';
-import { IconButton, Tooltip, useTheme } from '@material-ui/core';
-import SunIcon from '@material-ui/icons/BrightnessHigh';
-import MoonIcon from '@material-ui/icons/Brightness3';
+import { IconButton, Tooltip, useTheme } from '@mui/material';
+import SunIcon from '@mui/icons-material/BrightnessHigh';
+import MoonIcon from '@mui/icons-material/Brightness3';
 import { useRecoilState } from 'recoil';
 
-export default () => {
+const ThemeSwitchButton = () => {
   let theme = useTheme();
   const [prefersDarkMode, setPreferredMode] = useRecoilState(prefersDarkModeState);
 
   if (prefersDarkMode) {
     return (
       <Tooltip title="Switch to light theme">
-        <IconButton onClick={() => setPreferredMode(false)}>
+        <IconButton onClick={() => setPreferredMode(false)} size="large">
           <MoonIcon style={{ color: theme.palette.primary.contrastText }} />
         </IconButton>
       </Tooltip>
@@ -20,9 +20,11 @@ export default () => {
   }
   return (
     <Tooltip title="Switch to dark theme">
-      <IconButton onClick={() => setPreferredMode(true)}>
+      <IconButton onClick={() => setPreferredMode(true)} size="large">
         <SunIcon style={{ color: theme.palette.warning.light }} />
       </IconButton>
     </Tooltip>
   );
 };
+
+export default ThemeSwitchButton;

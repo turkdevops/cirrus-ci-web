@@ -1,30 +1,38 @@
 import React from 'react';
 
-import { commitMutation, QueryRenderer } from 'react-relay';
+import { useLazyLoadQuery, useMutation } from 'react-relay';
 import { graphql } from 'babel-plugin-relay/macro';
 
-import environment from '../../createRelayEnvironment';
 import AccountInformation from '../../components/account/AccountInformation';
-import CirrusLinearProgress from '../../components/common/CirrusLinearProgress';
 import { ActiveRepositoriesDrawerQuery } from './__generated__/ActiveRepositoriesDrawerQuery.graphql';
+import {
+  ActiveRepositoriesDrawerDeleteWebPushConfigurationMutation,
+  ActiveRepositoriesDrawerDeleteWebPushConfigurationMutationVariables,
+} from './__generated__/ActiveRepositoriesDrawerDeleteWebPushConfigurationMutation.graphql';
+import {
+  ActiveRepositoriesDrawerSaveWebPushConfigurationMutation,
+  ActiveRepositoriesDrawerSaveWebPushConfigurationMutationVariables,
+} from './__generated__/ActiveRepositoriesDrawerSaveWebPushConfigurationMutation.graphql';
 
-const saveWebPushConfigurationMutation = graphql`
-  mutation ActiveRepositoriesDrawerSaveWebPushConfigurationMutation($input: SaveWebPushConfigurationInput!) {
-    saveWebPushConfiguration(input: $input) {
-      clientMutationId
-    }
-  }
-`;
+function RegisterServiceWorkerIfNeeded(userId: string, webPushServerKey: string) {
+  const [commitSaveWebPushConfigurationMutation] =
+    useMutation<ActiveRepositoriesDrawerSaveWebPushConfigurationMutation>(graphql`
+      mutation ActiveRepositoriesDrawerSaveWebPushConfigurationMutation($input: SaveWebPushConfigurationInput!) {
+        saveWebPushConfiguration(input: $input) {
+          clientMutationId
+        }
+      }
+    `);
 
-const deleteWebPushConfigurationMutation = graphql`
-  mutation ActiveRepositoriesDrawerDeleteWebPushConfigurationMutation($input: DeleteWebPushConfigurationInput!) {
-    deleteWebPushConfiguration(input: $input) {
-      clientMutationId
-    }
-  }
-`;
+  const [commitDeleteWebPushConfigurationMutation] =
+    useMutation<ActiveRepositoriesDrawerDeleteWebPushConfigurationMutation>(graphql`
+      mutation ActiveRepositoriesDrawerDeleteWebPushConfigurationMutation($input: DeleteWebPushConfigurationInput!) {
+        deleteWebPushConfiguration(input: $input) {
+          clientMutationId
+        }
+      }
+    `);
 
-function registerServiceWorkerIfNeeded(userId: string, webPushServerKey: string) {
   if (!('serviceWorker' in navigator)) {
     return;
   }
@@ -44,14 +52,13 @@ function registerServiceWorkerIfNeeded(userId: string, webPushServerKey: string)
         reg.pushManager.getSubscription().then(existingSubscription => {
           if (existingSubscription && permissionResult !== 'granted') {
             let jsonSub = existingSubscription.toJSON();
-            const variables = {
+            const variables: ActiveRepositoriesDrawerDeleteWebPushConfigurationMutationVariables = {
               input: {
                 clientMutationId: 'subscribe-' + userId,
                 endpoint: jsonSub.endpoint,
               },
             };
-            commitMutation(environment, {
-              mutation: deleteWebPushConfigurationMutation,
+            commitDeleteWebPushConfigurationMutation({
               variables: variables,
               onError: err => console.error(err),
             });
@@ -67,7 +74,7 @@ function registerServiceWorkerIfNeeded(userId: string, webPushServerKey: string)
               .then(sub => {
                 if (sub) {
                   let jsonSub = sub.toJSON();
-                  const variables = {
+                  const variables: ActiveRepositoriesDrawerSaveWebPushConfigurationMutationVariables = {
                     input: {
                       clientMutationId: 'subscribe-' + userId,
                       endpoint: jsonSub.endpoint,
@@ -75,8 +82,7 @@ function registerServiceWorkerIfNeeded(userId: string, webPushServerKey: string)
                       authKey: jsonSub.keys['auth'],
                     },
                   };
-                  commitMutation(environment, {
-                    mutation: saveWebPushConfigurationMutation,
+                  commitSaveWebPushConfigurationMutation({
                     variables: variables,
                     onError: err => console.error(err),
                   });
@@ -111,29 +117,22 @@ function base64toUIntArray(text: string): Uint8Array {
   return result;
 }
 
-export default () => {
-  return (
-    <QueryRenderer<ActiveRepositoriesDrawerQuery>
-      environment={environment}
-      query={graphql`
-        query ActiveRepositoriesDrawerQuery {
-          viewer {
-            id
-            webPushServerKey
-            ...AccountInformation_viewer
-          }
+export default function ActiveRepositoriesDrawer(): JSX.Element {
+  const response = useLazyLoadQuery<ActiveRepositoriesDrawerQuery>(
+    graphql`
+      query ActiveRepositoriesDrawerQuery {
+        viewer {
+          id
+          webPushServerKey
+          ...AccountInformation_viewer
         }
-      `}
-      variables={{}}
-      render={({ props }) => {
-        if (!props) {
-          return <CirrusLinearProgress />;
-        }
-        if (props.viewer && props.viewer.webPushServerKey) {
-          registerServiceWorkerIfNeeded(props.viewer.id, props.viewer.webPushServerKey);
-        }
-        return <AccountInformation viewer={props.viewer} />;
-      }}
-    />
+      }
+    `,
+    {},
   );
-};
+
+  if (response.viewer && response.viewer.webPushServerKey) {
+    RegisterServiceWorkerIfNeeded(response.viewer.id, response.viewer.webPushServerKey);
+  }
+  return <AccountInformation viewer={response.viewer} />;
+}

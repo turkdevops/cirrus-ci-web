@@ -1,5 +1,5 @@
-import { IconButton, Tooltip, useTheme } from '@material-ui/core';
-import ErrorIcon from '@material-ui/icons/Error';
+import { IconButton, Tooltip, useTheme } from '@mui/material';
+import ErrorIcon from '@mui/icons-material/Error';
 import { selector, useRecoilValue } from 'recoil';
 import React from 'react';
 
@@ -11,13 +11,13 @@ export const GitHubStatusIndicatorState = selector({
       const body = await incidentsResponse.json();
       return body.status.indicator;
     } catch (e) {
-      // statuspage being down or failed connection doesn't mean GitHub is down
+      // statuspage being down or failed connection doesn't mean Owner is down
       return 'none';
     }
   },
 });
 
-export default () => {
+const GitHubStatus = () => {
   let theme = useTheme();
   let indicator = useRecoilValue(GitHubStatusIndicatorState);
 
@@ -25,9 +25,11 @@ export default () => {
 
   return (
     <Tooltip title={`GitHub has an ongoing ${indicator} incident that can affect normal operations`}>
-      <IconButton href="https://www.githubstatus.com/" target="_blank" rel="noopener noreferrer">
+      <IconButton href="https://www.githubstatus.com/" target="_blank" rel="noopener noreferrer" size="large">
         <ErrorIcon style={{ color: theme.palette.error.dark }} />
       </IconButton>
     </Tooltip>
   );
 };
+
+export default GitHubStatus;

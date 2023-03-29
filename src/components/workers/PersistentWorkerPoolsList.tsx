@@ -1,27 +1,27 @@
 import React, { useState } from 'react';
-import CardHeader from '@material-ui/core/CardHeader';
-import CardContent from '@material-ui/core/CardContent';
-import Typography from '@material-ui/core/Typography';
-import Card from '@material-ui/core/Card';
-import CardActions from '@material-ui/core/CardActions';
-import Button from '@material-ui/core/Button';
-import { commitMutation } from 'react-relay';
-import environment from '../../createRelayEnvironment';
-import Dialog from '@material-ui/core/Dialog';
-import DialogTitle from '@material-ui/core/DialogTitle';
-import DialogContent from '@material-ui/core/DialogContent';
-import FormControl from '@material-ui/core/FormControl';
-import FormControlLabel from '@material-ui/core/FormControlLabel';
-import Switch from '@material-ui/core/Switch';
-import InputLabel from '@material-ui/core/InputLabel';
-import Input from '@material-ui/core/Input';
-import DialogActions from '@material-ui/core/DialogActions';
+import CardHeader from '@mui/material/CardHeader';
+import CardContent from '@mui/material/CardContent';
+import Typography from '@mui/material/Typography';
+import Card from '@mui/material/Card';
+import CardActions from '@mui/material/CardActions';
+import Button from '@mui/material/Button';
+import { useMutation } from 'react-relay';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import FormControl from '@mui/material/FormControl';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Switch from '@mui/material/Switch';
+import InputLabel from '@mui/material/InputLabel';
+import Input from '@mui/material/Input';
+import DialogActions from '@mui/material/DialogActions';
 import { graphql } from 'babel-plugin-relay/macro';
 import {
+  PersistentWorkerPoolsListCreateMutation,
   CreatePersistentWorkerPoolInput,
   PersistentWorkerPoolsListCreateMutationResponse,
 } from './__generated__/PersistentWorkerPoolsListCreateMutation.graphql';
-import { navigate } from '../../utils/navigate';
+import { navigateHelper } from '../../utils/navigateHelper';
 import PropTypes from 'prop-types';
 import {
   Avatar,
@@ -31,18 +31,17 @@ import {
   ListItemAvatar,
   ListItemSecondaryAction,
   ListItemText,
-} from '@material-ui/core';
-import DeleteIcon from '@material-ui/icons/Delete';
-import { DeletePersistentWorkerPoolInput } from './__generated__/PersistentWorkerPoolsListDeleteMutation.graphql';
+} from '@mui/material';
+import DeleteIcon from '@mui/icons-material/Delete';
+import {
+  PersistentWorkerPoolsListDeleteMutation,
+  PersistentWorkerPoolsListDeleteMutationVariables,
+} from './__generated__/PersistentWorkerPoolsListDeleteMutation.graphql';
 import PoolVisibilityIcon from '../icons/PoolVisibilityIcon';
-import { useHistory } from 'react-router-dom';
-
-interface PoolsListState {
-  openDialog: boolean;
-}
+import { useNavigate } from 'react-router-dom';
 
 interface PoolsListProps {
-  readonly ownerId: number;
+  readonly ownerUid: string;
   pools: ReadonlyArray<{
     readonly id: string;
     readonly name: string;
@@ -50,44 +49,38 @@ interface PoolsListProps {
   }>;
 }
 
-const deletePoolMutation = graphql`
-  mutation PersistentWorkerPoolsListDeleteMutation($input: DeletePersistentWorkerPoolInput!) {
-    deletePersistentWorkerPool(input: $input) {
-      deletedPoolId
-    }
-  }
-`;
-
 function PersistentWorkerPoolsList(props: PoolsListProps) {
-  let history = useHistory();
+  let navigate = useNavigate();
   let [openDialog, setOpenDialog] = useState(false);
 
+  const [commitDeleteMutation] = useMutation<PersistentWorkerPoolsListDeleteMutation>(graphql`
+    mutation PersistentWorkerPoolsListDeleteMutation($input: DeletePersistentWorkerPoolInput!) {
+      deletePersistentWorkerPool(input: $input) {
+        deletedPoolId @deleteRecord
+      }
+    }
+  `);
   let deletePool = poolId => {
-    const input: DeletePersistentWorkerPoolInput = {
-      clientMutationId: 'delete-persistent-worker-pool-' + poolId,
-      poolId: poolId,
+    const variables: PersistentWorkerPoolsListDeleteMutationVariables = {
+      input: {
+        clientMutationId: 'delete-persistent-worker-pool-' + poolId,
+        poolId: poolId,
+      },
     };
-    commitMutation(environment, {
-      mutation: deletePoolMutation,
-      variables: { input: input },
-      configs: [
-        {
-          type: 'NODE_DELETE',
-          deletedIDFieldName: 'deletedPoolId',
-        },
-      ],
+    commitDeleteMutation({
+      variables: variables,
       onError: err => console.log(err),
     });
   };
   return (
-    <Card>
+    <Card elevation={24}>
       <CardHeader title="Persistent Worker Pools" />
       <CardContent>
         <List>
           {props.pools.map(
             pool =>
               pool && (
-                <ListItem key={pool.id} button onClick={() => navigate(history, '', '/pool/' + pool.id)}>
+                <ListItem key={pool.id} button onClick={() => navigateHelper(navigate, '', '/pool/' + pool.id)}>
                   <ListItemAvatar>
                     <Avatar>
                       <PoolVisibilityIcon enabledForPublic={pool.enabledForPublic} />
@@ -95,7 +88,7 @@ function PersistentWorkerPoolsList(props: PoolsListProps) {
                   </ListItemAvatar>
                   <ListItemText primary={pool.name} />
                   <ListItemSecondaryAction>
-                    <IconButton edge="end" aria-label="delete" onClick={() => deletePool(pool.id)}>
+                    <IconButton edge="end" aria-label="delete" onClick={() => deletePool(pool.id)} size="large">
                       <DeleteIcon />
                     </IconButton>
                   </ListItemSecondaryAction>
@@ -106,7 +99,7 @@ function PersistentWorkerPoolsList(props: PoolsListProps) {
       </CardContent>
       <CardActions>
         <CreateNewPersistentWorkerPoolDialog
-          ownerId={props.ownerId}
+          ownerUid={props.ownerUid}
           open={openDialog}
           onClose={() => setOpenDialog(!openDialog)}
         />
@@ -119,44 +112,41 @@ function PersistentWorkerPoolsList(props: PoolsListProps) {
 }
 
 interface DialogProps {
-  ownerId: number;
+  ownerUid: string;
   open: boolean;
 
   onClose(...args: any[]): void;
 }
 
-interface DialogState {
-  name: string;
-  enabledForPublic: boolean;
-}
-
-const createPoolMutation = graphql`
-  mutation PersistentWorkerPoolsListCreateMutation($input: CreatePersistentWorkerPoolInput!) {
-    createPersistentWorkerPool(input: $input) {
-      pool {
-        id
-      }
-    }
-  }
-`;
-
 function CreateNewPersistentWorkerPoolDialog(props: DialogProps) {
-  let history = useHistory();
+  let navigate = useNavigate();
   let [name, setName] = useState('');
   let [enabledForPublic, setEnabledForPublic] = useState(true);
 
+  const [commitCreatePoolMutation] = useMutation<PersistentWorkerPoolsListCreateMutation>(graphql`
+    mutation PersistentWorkerPoolsListCreateMutation($input: CreatePersistentWorkerPoolInput!) {
+      createPersistentWorkerPool(input: $input) {
+        pool {
+          id
+        }
+      }
+    }
+  `);
   function createPool() {
     const input: CreatePersistentWorkerPoolInput = {
-      clientMutationId: 'create-persistent-worker-pool-' + props.ownerId,
-      ownerId: props.ownerId,
+      clientMutationId: 'create-persistent-worker-pool-' + props.ownerUid,
+      ownerUid: props.ownerUid,
       name: name,
       enabledForPublic: enabledForPublic,
     };
-    commitMutation(environment, {
-      mutation: createPoolMutation,
+    commitCreatePoolMutation({
       variables: { input: input },
-      onCompleted: (response: PersistentWorkerPoolsListCreateMutationResponse) => {
-        navigate(history, '', '/pool/' + response.createPersistentWorkerPool.pool.id);
+      onCompleted: (response: PersistentWorkerPoolsListCreateMutationResponse, errors) => {
+        if (errors) {
+          console.log(errors);
+          return;
+        }
+        navigateHelper(navigate, '', '/pool/' + response.createPersistentWorkerPool.pool.id);
         props.onClose();
       },
       onError: err => console.log(err),

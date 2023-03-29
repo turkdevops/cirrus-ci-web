@@ -1,43 +1,65 @@
 import React from 'react';
-import { useHistory } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
-import TableCell from '@material-ui/core/TableCell';
-import TableRow from '@material-ui/core/TableRow';
-import Chip from '@material-ui/core/Chip';
+import TableCell from '@mui/material/TableCell';
+import TableRow from '@mui/material/TableRow';
+import Chip from '@mui/material/Chip';
 import TaskNameChip from '../chips/TaskNameChip';
 import TaskDurationChip from '../chips/TaskDurationChip';
-import { createFragmentContainer } from 'react-relay';
+import { useFragment } from 'react-relay';
 import { graphql } from 'babel-plugin-relay/macro';
-import { withStyles, WithStyles } from '@material-ui/core/styles';
+import { makeStyles } from '@mui/styles';
 import classNames from 'classnames';
 import RepositoryNameChip from '../chips/RepositoryNameChip';
-import AttachMoneyIcon from '@material-ui/icons/AttachMoney';
+import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import TaskCreatedChip from '../chips/TaskCreatedChip';
-import { navigateTask } from '../../utils/navigate';
-import { ComputeCreditsTransactionRow_transaction } from './__generated__/ComputeCreditsTransactionRow_transaction.graphql';
+import { navigateTaskHelper } from '../../utils/navigateHelper';
+import { ComputeCreditsTransactionRow_transaction$key } from './__generated__/ComputeCreditsTransactionRow_transaction.graphql';
 
-const styles = {
-  chip: {
-    marginTop: 4,
-    marginBottom: 4,
-    marginLeft: 4,
-  },
-  cell: {
-    padding: 0,
-    height: '100%',
-  },
-};
+const useStyles = makeStyles(theme => {
+  return {
+    chip: {
+      marginTop: 4,
+      marginBottom: 4,
+      marginLeft: 4,
+    },
+    cell: {
+      padding: 0,
+      height: '100%',
+    },
+  };
+});
 
-interface Props extends WithStyles<typeof styles> {
-  transaction: ComputeCreditsTransactionRow_transaction;
+interface Props {
+  transaction: ComputeCreditsTransactionRow_transaction$key;
 }
 
-function ComputeCreditsTransactionRow(props: Props) {
-  let history = useHistory();
-  let { transaction, classes } = props;
+export default function ComputeCreditsTransactionRow(props: Props) {
+  let transaction = useFragment(
+    graphql`
+      fragment ComputeCreditsTransactionRow_transaction on OwnerTransaction {
+        timestamp
+        creditsAmount
+        task {
+          id
+          name
+          ...TaskCreatedChip_task
+          ...TaskDurationChip_task
+          ...TaskNameChip_task
+        }
+        repository {
+          ...RepositoryNameChip_repository
+        }
+      }
+    `,
+    props.transaction,
+  );
+
+  let navigate = useNavigate();
+  let classes = useStyles();
   let { task, repository } = transaction;
   return (
-    <TableRow onClick={e => navigateTask(history, e, task.id)} hover={true} style={{ cursor: 'pointer' }}>
+    <TableRow onClick={e => navigateTaskHelper(navigate, e, task.id)} hover={true} style={{ cursor: 'pointer' }}>
       <TableCell className={classNames(classes.cell)}>
         <TaskNameChip task={task} className={classes.chip} />
         <TaskCreatedChip task={task} className={classes.chip} />
@@ -58,22 +80,3 @@ function ComputeCreditsTransactionRow(props: Props) {
     </TableRow>
   );
 }
-
-export default createFragmentContainer(withStyles(styles)(ComputeCreditsTransactionRow), {
-  transaction: graphql`
-    fragment ComputeCreditsTransactionRow_transaction on AccountTransaction {
-      timestamp
-      creditsAmount
-      task {
-        id
-        name
-        ...TaskCreatedChip_task
-        ...TaskDurationChip_task
-        ...TaskNameChip_task
-      }
-      repository {
-        ...RepositoryNameChip_repository
-      }
-    }
-  `,
-});

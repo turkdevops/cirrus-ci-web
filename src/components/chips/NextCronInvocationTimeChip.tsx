@@ -1,30 +1,41 @@
-import Avatar from '@material-ui/core/Avatar';
-import Chip from '@material-ui/core/Chip';
-import AccessTime from '@material-ui/icons/AccessTime';
-import Tooltip from '@material-ui/core/Tooltip';
+import Avatar from '@mui/material/Avatar';
+import Chip from '@mui/material/Chip';
+import AccessTime from '@mui/icons-material/AccessTime';
+import Tooltip from '@mui/material/Tooltip';
 import { graphql } from 'babel-plugin-relay/macro';
 import React from 'react';
-import { createFragmentContainer } from 'react-relay';
-import { NextCronInvocationTimeChip_settings } from './__generated__/NextCronInvocationTimeChip_settings.graphql';
-import { createStyles, WithStyles, withStyles } from '@material-ui/core/styles';
+import { useFragment } from 'react-relay';
+import { NextCronInvocationTimeChip_settings$key } from './__generated__/NextCronInvocationTimeChip_settings.graphql';
+import { makeStyles } from '@mui/styles';
 
-const styles = theme =>
-  createStyles({
+const useStyles = makeStyles(theme => {
+  return {
     avatar: {
       backgroundColor: theme.palette.primary.main,
     },
     avatarIcon: {
       color: theme.palette.primary.contrastText,
     },
-  });
+  };
+});
 
-interface Props extends WithStyles<typeof styles> {
-  settings: NextCronInvocationTimeChip_settings;
+interface Props {
+  settings: NextCronInvocationTimeChip_settings$key;
   className?: string;
 }
 
-function NextCronInvocationTimeChip(props: Props) {
-  let nextInvocationTimestamp = props.settings.nextInvocationTimestamp;
+export default function NextCronInvocationTimeChip(props: Props) {
+  let settings = useFragment(
+    graphql`
+      fragment NextCronInvocationTimeChip_settings on RepositoryCronSettings {
+        nextInvocationTimestamp
+      }
+    `,
+    props.settings,
+  );
+
+  let classes = useStyles();
+  let nextInvocationTimestamp = settings.nextInvocationTimestamp;
   return (
     <Tooltip
       title={`Next invocation will be at ${new Date(nextInvocationTimestamp).toLocaleTimeString()} on ${new Date(
@@ -35,19 +46,11 @@ function NextCronInvocationTimeChip(props: Props) {
         className={props.className}
         label={`Next invocation: ${new Date(nextInvocationTimestamp).toLocaleTimeString()}`}
         avatar={
-          <Avatar className={props.classes.avatar}>
-            <AccessTime className={props.classes.avatarIcon} />
+          <Avatar className={classes.avatar}>
+            <AccessTime className={classes.avatarIcon} />
           </Avatar>
         }
       />
     </Tooltip>
   );
 }
-
-export default createFragmentContainer(withStyles(styles)(NextCronInvocationTimeChip), {
-  settings: graphql`
-    fragment NextCronInvocationTimeChip_settings on RepositoryCronSettings {
-      nextInvocationTimestamp
-    }
-  `,
-});

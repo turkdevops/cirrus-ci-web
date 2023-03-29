@@ -1,14 +1,14 @@
 import React from 'react';
-import { Tooltip } from '@material-ui/core';
-import LockOpenIcon from '@material-ui/icons/LockOpen';
-import LockCloseIcon from '@material-ui/icons/Lock';
+import { Tooltip } from '@mui/material';
+import LockOpenIcon from '@mui/icons-material/LockOpen';
+import LockCloseIcon from '@mui/icons-material/Lock';
 
 interface Props {
   enabledForPublic: boolean;
 }
 
-export default (props: Props) =>
-  props.enabledForPublic ? (
+export default function PoolVisibilityIcon(props: Props) {
+  return props.enabledForPublic ? (
     <Tooltip title="Public Pool">
       <LockOpenIcon />
     </Tooltip>
@@ -17,3 +17,4 @@ export default (props: Props) =>
       <LockCloseIcon />
     </Tooltip>
   );
+}

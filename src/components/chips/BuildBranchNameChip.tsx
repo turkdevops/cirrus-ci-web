@@ -1,41 +1,82 @@
 import React from 'react';
 
-import Avatar from '@material-ui/core/Avatar';
-import Chip from '@material-ui/core/Chip';
-import CallSplit from '@material-ui/icons/CallSplit';
-import { useHistory } from 'react-router-dom';
-import { navigate } from '../../utils/navigate';
-import { createFragmentContainer } from 'react-relay';
+import Avatar from '@mui/material/Avatar';
+import Chip from '@mui/material/Chip';
+import CallSplit from '@mui/icons-material/CallSplit';
+import { useNavigate } from 'react-router-dom';
+import { navigateHelper } from '../../utils/navigateHelper';
+import { useFragment } from 'react-relay';
 import { graphql } from 'babel-plugin-relay/macro';
-import { BuildBranchNameChip_build } from './__generated__/BuildBranchNameChip_build.graphql';
+import { BuildBranchNameChip_build$key } from './__generated__/BuildBranchNameChip_build.graphql';
 import { shorten } from '../../utils/text';
-import { createStyles, withStyles, WithStyles } from '@material-ui/core/styles';
+import { makeStyles } from '@mui/styles';
+import { Commit } from '@mui/icons-material';
+import { Tooltip } from '@mui/material';
 
-const styles = theme =>
-  createStyles({
+const useStyles = makeStyles(theme => {
+  return {
     avatar: {
       backgroundColor: theme.palette.primary.main,
     },
     avatarIcon: {
       color: theme.palette.primary.contrastText,
     },
-  });
+  };
+});
 
-interface Props extends WithStyles<typeof styles> {
+interface Props {
   className?: string;
-  build: BuildBranchNameChip_build;
+  build: BuildBranchNameChip_build$key;
 }
 
-function BuildBranchNameChip(props: Props) {
-  let history = useHistory();
-  let build = props.build;
+export default function BuildBranchNameChip(props: Props) {
+  let build = useFragment(
+    graphql`
+      fragment BuildBranchNameChip_build on Build {
+        id
+        branch
+        tag
+        repository {
+          id
+          owner
+          name
+        }
+      }
+    `,
+    props.build,
+  );
+
+  let classes = useStyles();
+  let navigate = useNavigate();
 
   function handleBranchClick(event) {
     if (build.repository) {
-      navigate(history, event, '/github/' + build.repository.owner + '/' + build.repository.name + '/' + build.branch);
+      navigateHelper(
+        navigate,
+        event,
+        '/github/' + build.repository.owner + '/' + build.repository.name + '/' + build.branch,
+      );
     } else if (build.repository.id) {
-      navigate(history, event, '/repository/' + build.repository.id + '/' + build.branch);
+      navigateHelper(navigate, event, '/repository/' + build.repository.id + '/' + build.branch);
     }
+  }
+
+  if (build.tag) {
+    return (
+      <Tooltip title={`${build.tag} tag`}>
+        <Chip
+          className={props.className}
+          label={shorten(build.branch)}
+          avatar={
+            <Avatar className={classes.avatar}>
+              <Commit className={classes.avatarIcon} />
+            </Avatar>
+          }
+          onClick={handleBranchClick}
+          onAuxClick={handleBranchClick}
+        />
+      </Tooltip>
+    );
   }
 
   return (
@@ -43,25 +84,12 @@ function BuildBranchNameChip(props: Props) {
       className={props.className}
       label={shorten(build.branch)}
       avatar={
-        <Avatar className={props.classes.avatar}>
-          <CallSplit className={props.classes.avatarIcon} />
+        <Avatar className={classes.avatar}>
+          <CallSplit className={classes.avatarIcon} />
         </Avatar>
       }
-      onClick={e => handleBranchClick(e)}
+      onClick={handleBranchClick}
+      onAuxClick={handleBranchClick}
     />
   );
 }
-
-export default createFragmentContainer(withStyles(styles)(BuildBranchNameChip), {
-  build: graphql`
-    fragment BuildBranchNameChip_build on Build {
-      id
-      branch
-      repository {
-        id
-        owner
-        name
-      }
-    }
-  `,
-});

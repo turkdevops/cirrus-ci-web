@@ -1,22 +1,30 @@
 import React from 'react';
 
-import Avatar from '@material-ui/core/Avatar';
-import Chip from '@material-ui/core/Chip';
-import CasinoIcon from '@material-ui/icons/Casino';
+import Avatar from '@mui/material/Avatar';
+import Chip from '@mui/material/Chip';
+import CasinoIcon from '@mui/icons-material/Casino';
 
-import { createFragmentContainer } from 'react-relay';
+import { useFragment } from 'react-relay';
 import { graphql } from 'babel-plugin-relay/macro';
-import { TaskExperimentalChip_task } from './__generated__/TaskExperimentalChip_task.graphql';
-import { useTheme } from '@material-ui/core';
+import { TaskExperimentalChip_task$key } from './__generated__/TaskExperimentalChip_task.graphql';
+import { useTheme } from '@mui/material';
 
 interface Props {
   className?: string;
-  task: TaskExperimentalChip_task;
+  task: TaskExperimentalChip_task$key;
 }
 
-let TaskExperimentalChip = (props: Props) => {
+export default function TaskExperimentalChip(props: Props) {
+  let task = useFragment(
+    graphql`
+      fragment TaskExperimentalChip_task on Task {
+        experimental
+      }
+    `,
+    props.task,
+  );
+
   let theme = useTheme();
-  const { task } = props;
   const { experimental } = task;
 
   if (!experimental) return <div />;
@@ -32,12 +40,4 @@ let TaskExperimentalChip = (props: Props) => {
       }
     />
   );
-};
-
-export default createFragmentContainer(TaskExperimentalChip, {
-  task: graphql`
-    fragment TaskExperimentalChip_task on Task {
-      experimental
-    }
-  `,
-});
+}

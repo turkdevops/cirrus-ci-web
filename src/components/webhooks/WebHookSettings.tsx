@@ -1,41 +1,31 @@
 import React, { useState } from 'react';
-import environment from '../../createRelayEnvironment';
-import { commitMutation, createPaginationContainer, RelayPaginationProp } from 'react-relay';
+import { useMutation, useFragment } from 'react-relay';
 import { graphql } from 'babel-plugin-relay/macro';
-import TextField from '@material-ui/core/TextField';
-import Button from '@material-ui/core/Button';
-import Card from '@material-ui/core/Card';
-import CardActions from '@material-ui/core/CardActions';
-import CardContent from '@material-ui/core/CardContent';
-import CardHeader from '@material-ui/core/CardHeader';
-import FormControl from '@material-ui/core/FormControl';
-import { createStyles, WithStyles, withStyles } from '@material-ui/core/styles';
-import { RouteComponentProps, withRouter } from 'react-router-dom';
-import Collapse from '@material-ui/core/Collapse';
-import IconButton from '@material-ui/core/IconButton';
+import TextField from '@mui/material/TextField';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import CardActions from '@mui/material/CardActions';
+import CardContent from '@mui/material/CardContent';
+import CardHeader from '@mui/material/CardHeader';
+import FormControl from '@mui/material/FormControl';
+import { makeStyles } from '@mui/styles';
+import Collapse from '@mui/material/Collapse';
+import IconButton from '@mui/material/IconButton';
 import classNames from 'classnames';
-import ExpandMoreIcon from '@material-ui/icons/ExpandMore';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import DeliveriesList from './DeliveriesList';
-import { WebHookSettings_info } from './__generated__/WebHookSettings_info.graphql';
-import FormHelperText from '@material-ui/core/FormHelperText';
+import { WebHookSettings_info$key } from './__generated__/WebHookSettings_info.graphql';
+import FormHelperText from '@mui/material/FormHelperText';
 import sjcl from 'sjcl/sjcl.js';
+import {
+  WebHookSettingsMutation,
+  SaveWebHookSettingsInput,
+  WebHookSettingsMutationVariables,
+} from './__generated__/WebHookSettingsMutation.graphql';
+import { Link } from '@mui/material';
 
-const securedVariableMutation = graphql`
-  mutation WebHookSettingsMutation($input: SaveWebHookSettingsInput!) {
-    saveWebHookSettings(input: $input) {
-      error
-      info {
-        webhookSettings {
-          webhookURL
-          maskedSecretToken
-        }
-      }
-    }
-  }
-`;
-
-const styles = theme =>
-  createStyles({
+const useStyles = makeStyles(theme => {
+  return {
     expand: {
       transform: 'rotate(0deg)',
       marginLeft: 'auto',
@@ -46,24 +36,60 @@ const styles = theme =>
     expandOpen: {
       transform: 'rotate(180deg)',
     },
-  });
+  };
+});
 
-interface Props extends RouteComponentProps, WithStyles<typeof styles> {
-  info: WebHookSettings_info;
-  relay: RelayPaginationProp;
+interface Props {
+  info: WebHookSettings_info$key;
 }
 
-function WebHookSettings(props: Props) {
-  let [expanded, setExpanded] = useState(false);
-  let [webhookURL, setWebhookURL] = useState(props.info.webhookSettings.webhookURL || '');
-  let [secretToken, setSecretToken] = useState('');
-  let { info, classes } = props;
+export default function WebHookSettings(props: Props) {
+  let info = useFragment(
+    graphql`
+      fragment WebHookSettings_info on OwnerInfo {
+        platform
+        uid
+        webhookSettings {
+          webhookURL
+          maskedSecretToken
+        }
+        webhookDeliveries(last: 50) {
+          edges {
+            node {
+              ...DeliveryRow_delivery
+            }
+          }
+        }
+      }
+    `,
+    props.info,
+  );
 
+  let [expanded, setExpanded] = useState(false);
+  let [webhookURL, setWebhookURL] = useState(info.webhookSettings.webhookURL || '');
+  let [secretToken, setSecretToken] = useState('');
+  let classes = useStyles();
+
+  const [commitSecuredVariableMutation] = useMutation<WebHookSettingsMutation>(graphql`
+    mutation WebHookSettingsMutation($input: SaveWebHookSettingsInput!) {
+      saveWebHookSettings(input: $input) {
+        error
+        info {
+          uid
+          webhookSettings {
+            webhookURL
+            maskedSecretToken
+          }
+        }
+      }
+    }
+  `);
   function saveWebhookSettings() {
-    const variables = {
+    const variables: WebHookSettingsMutationVariables = {
       input: {
         clientMutationId: webhookURL,
-        accountId: props.info.id,
+        platform: info.platform,
+        ownerUid: info.uid,
         webhookURL: webhookURL,
       },
     };
@@ -74,36 +100,33 @@ function WebHookSettings(props: Props) {
       variables.input['secretToken'] = secretToken;
     }
 
-    commitMutation(environment, {
-      mutation: securedVariableMutation,
+    commitSecuredVariableMutation({
       variables: variables,
       onError: err => console.error(err),
     });
   }
 
   function resetSecretToken() {
-    const variables = {
-      input: {
-        clientMutationId: `reset-${props.info.webhookSettings.maskedSecretToken}`,
-        accountId: props.info.id,
-        webhookURL: props.info.webhookSettings.webhookURL,
-        secretToken: '',
-      },
+    let input: SaveWebHookSettingsInput = {
+      clientMutationId: `reset-${info.webhookSettings.maskedSecretToken}`,
+      platform: info.platform,
+      ownerUid: info.uid,
+      webhookURL: info.webhookSettings.webhookURL,
+      secretToken: '',
     };
 
-    commitMutation(environment, {
-      mutation: securedVariableMutation,
-      variables: variables,
+    commitSecuredVariableMutation({
+      variables: { input },
       onError: err => console.error(err),
     });
   }
 
-  const hasTokenSet = props.info.webhookSettings != null && props.info.webhookSettings.maskedSecretToken !== '';
+  const hasTokenSet = info.webhookSettings != null && info.webhookSettings.maskedSecretToken !== '';
   const secretTokenControl = hasTokenSet ? (
     <FormControl style={{ width: '100%' }}>
       <FormHelperText>
-        Currently the secret token is set to <code>{props.info.webhookSettings.maskedSecretToken}</code>, reset it first
-        to set a new one:
+        Currently the secret token is set to <code>{info.webhookSettings.maskedSecretToken}</code>, reset it first to
+        set a new one:
       </FormHelperText>
       <Button variant="contained" onClick={resetSecretToken}>
         Reset Secret Token
@@ -114,9 +137,14 @@ function WebHookSettings(props: Props) {
       <FormHelperText>
         New secret token used to generate a signature for each request (learn how to validate the{' '}
         <code>X-Cirrus-Signature</code> header{' '}
-        <a href="https://cirrus-ci.org/api/#securing-webhooks" target="_blank" rel="noopener noreferrer">
+        <Link
+          color="inherit"
+          href="https://cirrus-ci.org/api/#securing-webhooks"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
           in the documentation
-        </a>
+        </Link>
         ):
       </FormHelperText>
       <TextField
@@ -129,20 +157,19 @@ function WebHookSettings(props: Props) {
     </FormControl>
   );
 
-  const webhookURLUnchanged =
-    props.info.webhookSettings != null && props.info.webhookSettings.webhookURL === webhookURL;
+  const webhookURLUnchanged = info.webhookSettings != null && info.webhookSettings.webhookURL === webhookURL;
   const secretTokenUnchanged = hasTokenSet || secretToken === '';
 
   return (
-    <Card>
+    <Card elevation={24}>
       <CardHeader title="Webhook Settings" />
       <CardContent>
         <FormControl style={{ width: '100%' }}>
           <FormHelperText>
             A URL to send{' '}
-            <a href="https://cirrus-ci.org/api/#webhooks" target="_blank" rel="noopener noreferrer">
+            <Link color="inherit" href="https://cirrus-ci.org/api/#webhooks" target="_blank" rel="noopener noreferrer">
               updates for builds and tasks
-            </a>{' '}
+            </Link>{' '}
             to:
           </FormHelperText>
           <TextField
@@ -170,6 +197,7 @@ function WebHookSettings(props: Props) {
           onClick={() => setExpanded(!expanded)}
           aria-expanded={expanded}
           aria-label="Show Deliveries"
+          size="large"
         >
           <ExpandMoreIcon />
         </IconButton>
@@ -182,53 +210,3 @@ function WebHookSettings(props: Props) {
     </Card>
   );
 }
-
-export default createPaginationContainer(
-  withStyles(styles)(withRouter(WebHookSettings)) as typeof WebHookSettings,
-  {
-    info: graphql`
-      fragment WebHookSettings_info on GitHubOrganizationInfo
-      @argumentDefinitions(count: { type: "Int", defaultValue: 50 }, cursor: { type: "String" }) {
-        id
-        webhookSettings {
-          webhookURL
-          maskedSecretToken
-        }
-        webhookDeliveries(last: $count, after: $cursor) @connection(key: "WebHookSettings_webhookDeliveries") {
-          edges {
-            node {
-              ...DeliveryRow_delivery
-            }
-          }
-        }
-      }
-    `,
-  },
-  {
-    direction: 'forward',
-    getConnectionFromProps(props: any) {
-      return props.info && props.info.deliveries;
-    },
-    // This is also the default implementation of `getFragmentVariables` if it isn't provided.
-    getFragmentVariables(prevVars, totalCount) {
-      return {
-        ...prevVars,
-        count: totalCount,
-      };
-    },
-    getVariables(props, { count, cursor }, fragmentVariables) {
-      return {
-        count: count,
-        cursor: cursor,
-        organization: props.info.name,
-      };
-    },
-    query: graphql`
-      query WebHookSettingsQuery($count: Int!, $cursor: String, $organization: String!) {
-        githubOrganizationInfo(organization: $organization) {
-          ...WebHookSettings_info @arguments(count: $count, cursor: $cursor)
-        }
-      }
-    `,
-  },
-);

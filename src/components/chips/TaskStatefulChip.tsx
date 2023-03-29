@@ -1,22 +1,30 @@
 import React from 'react';
 
-import Avatar from '@material-ui/core/Avatar';
-import Chip from '@material-ui/core/Chip';
-import SecurityIcon from '@material-ui/icons/Security';
+import Avatar from '@mui/material/Avatar';
+import Chip from '@mui/material/Chip';
+import SecurityIcon from '@mui/icons-material/Security';
 import { graphql } from 'babel-plugin-relay/macro';
-import { TaskStatefulChip_task } from './__generated__/TaskStatefulChip_task.graphql';
-import { createFragmentContainer } from 'react-relay';
-import { useTheme } from '@material-ui/core';
+import { TaskStatefulChip_task$key } from './__generated__/TaskStatefulChip_task.graphql';
+import { useFragment } from 'react-relay';
+import { useTheme } from '@mui/material';
 
 interface Props {
-  task: TaskStatefulChip_task;
+  task: TaskStatefulChip_task$key;
   className?: string;
 }
 
-function TaskStatefulChip(props: Props) {
+export default function TaskStatefulChip(props: Props) {
+  let task = useFragment(
+    graphql`
+      fragment TaskStatefulChip_task on Task {
+        stateful
+      }
+    `,
+    props.task,
+  );
+
   let theme = useTheme();
 
-  let { task } = props;
   let { stateful } = task;
   if (!stateful) return <div />;
 
@@ -32,11 +40,3 @@ function TaskStatefulChip(props: Props) {
     />
   );
 }
-
-export default createFragmentContainer(TaskStatefulChip, {
-  task: graphql`
-    fragment TaskStatefulChip_task on Task {
-      stateful
-    }
-  `,
-});

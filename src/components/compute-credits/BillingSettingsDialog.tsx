@@ -1,57 +1,60 @@
-import Button from '@material-ui/core/Button';
-import { orange } from '@material-ui/core/colors';
-import Dialog from '@material-ui/core/Dialog';
-import DialogActions from '@material-ui/core/DialogActions';
-import DialogContent from '@material-ui/core/DialogContent';
-import DialogTitle from '@material-ui/core/DialogTitle';
-import FormControl from '@material-ui/core/FormControl';
-import FormControlLabel from '@material-ui/core/FormControlLabel';
-import Input from '@material-ui/core/Input';
-import InputLabel from '@material-ui/core/InputLabel';
-import { createStyles, withStyles, WithStyles } from '@material-ui/core/styles';
-import Switch from '@material-ui/core/Switch';
-import Typography from '@material-ui/core/Typography';
+import Button from '@mui/material/Button';
+import { orange } from '@mui/material/colors';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
+import FormControl from '@mui/material/FormControl';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Input from '@mui/material/Input';
+import InputLabel from '@mui/material/InputLabel';
+import { makeStyles } from '@mui/styles';
+import Switch from '@mui/material/Switch';
+import Typography from '@mui/material/Typography';
 import { graphql } from 'babel-plugin-relay/macro';
 import React, { useState } from 'react';
-import { commitMutation, createFragmentContainer } from 'react-relay';
-import environment from '../../createRelayEnvironment';
-import { BillingSettingsDialogMutationResponse } from './__generated__/BillingSettingsDialogMutation.graphql';
-import { BillingSettingsDialog_billingSettings } from './__generated__/BillingSettingsDialog_billingSettings.graphql';
+import { useMutation, useFragment } from 'react-relay';
+import {
+  BillingSettingsDialogMutation,
+  BillingSettingsDialogMutationResponse,
+  BillingSettingsDialogMutationVariables,
+} from './__generated__/BillingSettingsDialogMutation.graphql';
+import { BillingSettingsDialog_billingSettings$key } from './__generated__/BillingSettingsDialog_billingSettings.graphql';
+import { Link } from '@mui/material';
 
-const styles = theme =>
-  createStyles({
+const useStyles = makeStyles(theme => {
+  return {
     limit: {
       color: orange[700],
       '&:hover': {
         color: orange[900],
       },
     },
-  });
+  };
+});
 
-const saveBillingSettingsMutation = graphql`
-  mutation BillingSettingsDialogMutation($input: BillingSettingsInput!) {
-    saveBillingSettings(input: $input) {
-      settings {
-        accountId
-        enabled
-        billingCreditsLimit
-        billingEmailAddress
-        invoiceTemplate
-      }
-    }
-  }
-`;
-
-interface Props extends WithStyles<typeof styles> {
-  billingSettings: BillingSettingsDialog_billingSettings;
+interface Props {
+  billingSettings: BillingSettingsDialog_billingSettings$key;
 
   onClose(...args: any[]): void;
 
   open: boolean;
 }
 
-function BillingSettingsDialog(props: Props) {
-  const { billingSettings, classes, ...other } = props;
+export default function BillingSettingsDialog(props: Props) {
+  let billingSettings = useFragment(
+    graphql`
+      fragment BillingSettingsDialog_billingSettings on BillingSettings {
+        ownerUid
+        enabled
+        billingCreditsLimit
+        billingEmailAddress
+        invoiceTemplate
+      }
+    `,
+    props.billingSettings,
+  );
+  let classes = useStyles();
   let [enabled, setEnabled] = useState(billingSettings.enabled);
   let [billingEmailAddress, setBillingEmailAddress] = useState(billingSettings.billingEmailAddress);
   let [invoiceTemplate, setInvoiceTemplate] = useState(billingSettings.invoiceTemplate);
@@ -61,20 +64,36 @@ function BillingSettingsDialog(props: Props) {
     billingSettings.billingEmailAddress === billingEmailAddress &&
     billingSettings.invoiceTemplate === invoiceTemplate;
 
+  const [commitSaveBillingSettingsMutation] = useMutation<BillingSettingsDialogMutation>(graphql`
+    mutation BillingSettingsDialogMutation($input: BillingSettingsInput!) {
+      saveBillingSettings(input: $input) {
+        settings {
+          ownerUid
+          enabled
+          billingCreditsLimit
+          billingEmailAddress
+          invoiceTemplate
+        }
+      }
+    }
+  `);
   function updateSettings() {
-    const variables = {
+    const variables: BillingSettingsDialogMutationVariables = {
       input: {
-        clientMutationId: 'save-billing-settings-' + props.billingSettings.accountId,
-        accountId: props.billingSettings.accountId,
+        clientMutationId: 'save-billing-settings-' + billingSettings.ownerUid,
+        ownerUid: billingSettings.ownerUid,
         enabled: enabled,
         billingEmailAddress: billingEmailAddress,
         invoiceTemplate: invoiceTemplate,
       },
     };
-    commitMutation(environment, {
-      mutation: saveBillingSettingsMutation,
+    commitSaveBillingSettingsMutation({
       variables: variables,
-      onCompleted: (response: BillingSettingsDialogMutationResponse) => {
+      onCompleted: (response: BillingSettingsDialogMutationResponse, errors) => {
+        if (errors) {
+          console.log(errors);
+          return;
+        }
         setEnabled(response.saveBillingSettings.settings.enabled);
         setBillingEmailAddress(response.saveBillingSettings.settings.billingEmailAddress);
         setInvoiceTemplate(response.saveBillingSettings.settings.invoiceTemplate);
@@ -85,7 +104,7 @@ function BillingSettingsDialog(props: Props) {
   }
 
   return (
-    <Dialog {...other}>
+    <Dialog onClose={props.onClose} open={props.open}>
       <DialogTitle>Compute Credits Auto Pay</DialogTitle>
       <DialogContent>
         <FormControl fullWidth>
@@ -102,7 +121,10 @@ function BillingSettingsDialog(props: Props) {
           <p>
             Your current limit is set to maximum <b className={classes.limit}>{billingSettings.billingCreditsLimit}</b>{' '}
             compute credits that your repositories can use each month. To increase the limit please{' '}
-            <a href="mailto:support@cirruslabs.org">email support</a>.
+            <Link color="inherit" href="mailto:support@cirruslabs.org">
+              email support
+            </Link>
+            .
           </p>
         </Typography>
         <FormControl fullWidth>
@@ -134,15 +156,3 @@ function BillingSettingsDialog(props: Props) {
     </Dialog>
   );
 }
-
-export default createFragmentContainer(withStyles(styles)(BillingSettingsDialog), {
-  billingSettings: graphql`
-    fragment BillingSettingsDialog_billingSettings on BillingSettings {
-      accountId
-      enabled
-      billingCreditsLimit
-      billingEmailAddress
-      invoiceTemplate
-    }
-  `,
-});

@@ -1,36 +1,45 @@
 import React from 'react';
-import { createFragmentContainer } from 'react-relay';
+import { useFragment } from 'react-relay';
 import { graphql } from 'babel-plugin-relay/macro';
 
-import Avatar from '@material-ui/core/Avatar';
-import IconButton from '@material-ui/core/IconButton';
-import Menu from '@material-ui/core/Menu';
-import MenuItem from '@material-ui/core/MenuItem';
-import ListItemIcon from '@material-ui/core/ListItemIcon';
-import ListItemText from '@material-ui/core/ListItemText';
-import { navigate } from '../../utils/navigate';
-import { useHistory } from 'react-router-dom';
-import { AccountInformation_viewer } from './__generated__/AccountInformation_viewer.graphql';
-import Settings from '@material-ui/icons/Settings';
-import DirectionsRun from '@material-ui/icons/DirectionsRun';
-import Button from '@material-ui/core/Button';
-import GitHubIcon from '@material-ui/icons/GitHub';
-import { createStyles, withStyles, WithStyles } from '@material-ui/core/styles';
+import Avatar from '@mui/material/Avatar';
+import IconButton from '@mui/material/IconButton';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import { navigateHelper } from '../../utils/navigateHelper';
+import { useNavigate } from 'react-router-dom';
+import { AccountInformation_viewer$key } from './__generated__/AccountInformation_viewer.graphql';
+import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
+import DirectionsRun from '@mui/icons-material/DirectionsRun';
+import Button from '@mui/material/Button';
+import GitHubIcon from '@mui/icons-material/GitHub';
+import { makeStyles } from '@mui/styles';
 
-const styles = theme =>
-  createStyles({
+const useStyles = makeStyles(theme => {
+  return {
     authButton: {
       color: theme.palette.primary.contrastText,
       marginLeft: 10,
     },
-  });
+  };
+});
 
-interface Props extends WithStyles<typeof styles> {
-  viewer: AccountInformation_viewer;
+interface Props {
+  viewer: AccountInformation_viewer$key;
 }
 
-function AccountInformation(props: Props) {
-  let history = useHistory();
+export default function AccountInformation(props: Props) {
+  let viewer = useFragment(
+    graphql`
+      fragment AccountInformation_viewer on User {
+        avatarURL
+      }
+    `,
+    props.viewer,
+  );
+  let navigate = useNavigate();
   const [anchorEl, setAnchorEl] = React.useState(null);
 
   const handleClick = event => {
@@ -41,7 +50,7 @@ function AccountInformation(props: Props) {
     setAnchorEl(null);
   };
 
-  let { viewer, classes } = props;
+  let classes = useStyles();
 
   if (!viewer) {
     return (
@@ -61,6 +70,7 @@ function AccountInformation(props: Props) {
         aria-owns={anchorEl ? 'long-menu' : undefined}
         aria-haspopup="true"
         onClick={handleClick}
+        size="large"
       >
         <Avatar style={{ cursor: 'pointer' }} src={viewer.avatarURL} />
       </IconButton>
@@ -68,18 +78,18 @@ function AccountInformation(props: Props) {
         <MenuItem
           onClick={event => {
             handleClose();
-            navigate(history, event, '/settings/profile/');
+            navigateHelper(navigate, event, '/settings/profile/');
           }}
         >
           <ListItemIcon>
-            <Settings />
+            <ManageAccountsIcon />
           </ListItemIcon>
           <ListItemText inset primary="Settings" />
         </MenuItem>
         <MenuItem
           onClick={event => {
             handleClose();
-            navigate(history, event, 'https://api.cirrus-ci.com/redirect/logout/');
+            navigateHelper(navigate, event, 'https://api.cirrus-ci.com/redirect/logout/');
           }}
         >
           <ListItemIcon>
@@ -91,11 +101,3 @@ function AccountInformation(props: Props) {
     </div>
   );
 }
-
-export default createFragmentContainer(withStyles(styles)(AccountInformation), {
-  viewer: graphql`
-    fragment AccountInformation_viewer on User {
-      avatarURL
-    }
-  `,
-});

@@ -1,15 +1,21 @@
-import grey from '@material-ui/core/colors/grey';
-import lightGreen from '@material-ui/core/colors/lightGreen';
-import orange from '@material-ui/core/colors/orange';
-import red from '@material-ui/core/colors/red';
-import { ThemeOptions } from '@material-ui/core/styles/createMuiTheme';
+import { ThemeOptions } from '@mui/material/styles';
 import { atom, selector } from 'recoil';
 import { localStorageEffect } from './utils/recoil';
+
+import { grey, lightGreen, orange, red } from '@mui/material/colors';
 
 export const prefersDarkModeState = atom({
   key: 'CurrentlyPrefersDarkMode',
   default: false,
   effects_UNSTABLE: [localStorageEffect('CurrentlyPreferredTheme')],
+});
+
+export const muiThemeOptions = selector({
+  key: 'muiThemeOptions',
+  get: ({ get }) => {
+    const prefersDarkMode = get(prefersDarkModeState);
+    return prefersDarkMode ? muiDarkTheme : muiLightTheme;
+  },
 });
 
 export const cirrusColorsState = selector({
@@ -37,24 +43,12 @@ let cirrusBaseTheme: ThemeOptions = {
   shape: {
     borderRadius: 2,
   },
-  overrides: {
-    MuiChip: {
-      root: {
-        '& $avatar': {
-          marginLeft: 0,
-          marginRight: 0,
-          width: 32,
-          height: 32,
-        },
-      },
-    },
-  },
 };
 
 export let cirrusLightTheme: ThemeOptions = {
   ...cirrusBaseTheme,
   palette: {
-    type: 'light',
+    mode: 'light',
     primary: {
       main: grey['900'],
       dark: grey['900'],
@@ -86,12 +80,31 @@ export let cirrusLightTheme: ThemeOptions = {
       dark: orange['700'],
     },
   },
+  components: {
+    MuiChip: {
+      styleOverrides: {
+        avatar: {
+          marginLeft: 0,
+          marginRight: 0,
+          height: 32,
+          width: 32,
+        },
+      },
+    },
+    MuiTableCell: {
+      styleOverrides: {
+        body: {
+          padding: 6, // it was changed from v4
+        },
+      },
+    },
+  },
 };
 
 export let cirrusDarkTheme: ThemeOptions = {
   ...cirrusBaseTheme,
   palette: {
-    type: 'dark',
+    mode: 'dark',
     primary: {
       main: grey['900'],
       dark: grey['900'],
@@ -120,4 +133,40 @@ export let cirrusDarkTheme: ThemeOptions = {
       dark: orange['800'],
     },
   },
+  components: {
+    MuiChip: {
+      styleOverrides: {
+        avatar: {
+          marginLeft: 0,
+          marginRight: 0,
+          height: 32,
+          width: 32,
+        },
+      },
+    },
+    MuiTableCell: {
+      styleOverrides: {
+        body: {
+          padding: 6, // it was changed from v4
+        },
+      },
+    },
+    MuiTab: {
+      styleOverrides: {
+        root: {
+          '&.Mui-selected': {
+            color: grey['50'],
+          },
+        },
+      },
+    },
+  },
+};
+
+export let muiLightTheme: ThemeOptions = {
+  palette: cirrusLightTheme.palette,
+};
+
+export let muiDarkTheme: ThemeOptions = {
+  palette: cirrusDarkTheme.palette,
 };

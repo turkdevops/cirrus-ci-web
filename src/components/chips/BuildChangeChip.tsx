@@ -1,51 +1,55 @@
-import Avatar from '@material-ui/core/Avatar';
-import Chip from '@material-ui/core/Chip';
-import Input from '@material-ui/icons/Input';
+import Avatar from '@mui/material/Avatar';
+import Chip from '@mui/material/Chip';
+import Input from '@mui/icons-material/Input';
 import { graphql } from 'babel-plugin-relay/macro';
 import React from 'react';
-import { createFragmentContainer } from 'react-relay';
-import { useHistory } from 'react-router-dom';
-import { navigateBuild } from '../../utils/navigate';
-import { BuildChangeChip_build } from './__generated__/BuildChangeChip_build.graphql';
-import { createStyles, withStyles, WithStyles } from '@material-ui/core/styles';
+import { useFragment } from 'react-relay';
+import { useNavigate } from 'react-router-dom';
+import { navigateBuildHelper } from '../../utils/navigateHelper';
+import { BuildChangeChip_build$key } from './__generated__/BuildChangeChip_build.graphql';
+import { makeStyles } from '@mui/styles';
 
-const styles = theme =>
-  createStyles({
+const useStyles = makeStyles(theme => {
+  return {
     avatar: {
       backgroundColor: theme.palette.primary.main,
     },
     avatarIcon: {
       color: theme.palette.primary.contrastText,
     },
-  });
+  };
+});
 
-interface Props extends WithStyles<typeof styles> {
-  build: BuildChangeChip_build;
+interface Props {
+  build: BuildChangeChip_build$key;
   className?: string;
 }
 
-function BuildChangeChip(props: Props) {
-  let { build, className } = props;
-  let history = useHistory();
+export default function BuildChangeChip(props: Props) {
+  let build = useFragment(
+    graphql`
+      fragment BuildChangeChip_build on Build {
+        id
+        changeIdInRepo
+      }
+    `,
+    props.build,
+  );
+
+  let { className } = props;
+  let navigate = useNavigate();
+  let classes = useStyles();
   return (
     <Chip
       label={build.changeIdInRepo.substr(0, 7)}
       avatar={
-        <Avatar className={props.classes.avatar}>
-          <Input className={props.classes.avatarIcon} />
+        <Avatar className={classes.avatar}>
+          <Input className={classes.avatarIcon} />
         </Avatar>
       }
-      onClick={e => navigateBuild(history, e, build.id)}
+      onClick={e => navigateBuildHelper(navigate, e, build.id)}
+      onAuxClick={e => navigateBuildHelper(navigate, e, build.id)}
       className={className}
     />
   );
 }
-
-export default createFragmentContainer(withStyles(styles)(BuildChangeChip), {
-  build: graphql`
-    fragment BuildChangeChip_build on Build {
-      id
-      changeIdInRepo
-    }
-  `,
-});

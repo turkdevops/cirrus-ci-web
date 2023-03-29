@@ -1,33 +1,39 @@
 import React from 'react';
 
-import { QueryRenderer } from 'react-relay';
+import { useLazyLoadQuery } from 'react-relay';
 import { graphql } from 'babel-plugin-relay/macro';
 
-import environment from '../../createRelayEnvironment';
 import TaskDetails from '../../components/tasks/TaskDetails';
-import CirrusLinearProgress from '../../components/common/CirrusLinearProgress';
 import NotFound from '../NotFound';
 import { TaskQuery } from './__generated__/TaskQuery.graphql';
+import { useParams } from 'react-router-dom';
+import AppBreadcrumbs from '../../components/common/AppBreadcrumbs';
 
-export default props => (
-  <QueryRenderer<TaskQuery>
-    environment={environment}
-    variables={props.match.params}
-    query={graphql`
+export default function Task(): JSX.Element {
+  let { taskId } = useParams();
+
+  const response = useLazyLoadQuery<TaskQuery>(
+    graphql`
       query TaskQuery($taskId: ID!) {
         task(id: $taskId) {
           ...TaskDetails_task
+          ...AppBreadcrumbs_task
+        }
+        viewer {
+          ...AppBreadcrumbs_viewer
         }
       }
-    `}
-    render={({ error, props }) => {
-      if (!props) {
-        return <CirrusLinearProgress />;
-      }
-      if (!props.task) {
-        return <NotFound message={error} />;
-      }
-      return <TaskDetails task={props.task} />;
-    }}
-  />
-);
+    `,
+    { taskId },
+  );
+
+  if (!response.task) {
+    return <NotFound />;
+  }
+  return (
+    <>
+      <AppBreadcrumbs task={response.task} viewer={response.viewer} />
+      <TaskDetails task={response.task} />
+    </>
+  );
+}

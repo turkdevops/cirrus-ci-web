@@ -1,5 +1,5 @@
-import Table from '@material-ui/core/Table';
-import TableBody from '@material-ui/core/TableBody';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
 import React from 'react';
 import ComputeCreditsTransactionRow from './ComputeCreditsTransactionRow';
 import { FragmentRefs } from 'relay-runtime';
@@ -11,7 +11,7 @@ interface Props {
   }>;
 }
 
-export default (props: Props) => {
+const ComputeCreditsTransactionsList = (props: Props) => {
   let transactions = props.transactions || [];
   return (
     <Table style={{ tableLayout: 'auto' }}>
@@ -23,3 +23,5 @@ export default (props: Props) => {
     </Table>
   );
 };
+
+export default ComputeCreditsTransactionsList;

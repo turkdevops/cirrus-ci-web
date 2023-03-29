@@ -1,39 +1,23 @@
 import React, { useState } from 'react';
-import DialogTitle from '@material-ui/core/DialogTitle';
-import Dialog from '@material-ui/core/Dialog';
-import DialogContent from '@material-ui/core/DialogContent';
-import FormControl from '@material-ui/core/FormControl';
-import InputLabel from '@material-ui/core/InputLabel';
-import Input from '@material-ui/core/Input';
-import Typography from '@material-ui/core/Typography';
-import { commitMutation } from 'react-relay';
+import DialogTitle from '@mui/material/DialogTitle';
+import Dialog from '@mui/material/Dialog';
+import DialogContent from '@mui/material/DialogContent';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Input from '@mui/material/Input';
+import { useMutation } from 'react-relay';
 import { graphql } from 'babel-plugin-relay/macro';
-import environment from '../../createRelayEnvironment';
 import { UnspecifiedCallbackFunction } from '../../utils/utility-types';
 import {
-  BuyComputeCreditsInput,
+  ComputeCreditsStripeDialogMutation,
   ComputeCreditsStripeDialogMutationResponse,
+  ComputeCreditsStripeDialogMutationVariables,
 } from './__generated__/ComputeCreditsStripeDialogMutation.graphql';
 import { CardElement, Elements, useElements, useStripe } from '@stripe/react-stripe-js';
-import Button from '@material-ui/core/Button';
-import DialogActions from '@material-ui/core/DialogActions';
+import Button from '@mui/material/Button';
+import DialogActions from '@mui/material/DialogActions';
 import { StripeCardElementOptions, Token } from '@stripe/stripe-js';
-
-const computeCreditsBuyMutation = graphql`
-  mutation ComputeCreditsStripeDialogMutation($input: BuyComputeCreditsInput!) {
-    buyComputeCredits(input: $input) {
-      error
-      info {
-        id
-        balanceInCredits
-      }
-      user {
-        id
-        balanceInCredits
-      }
-    }
-  }
-`;
+import { FormHelperText } from '@mui/material';
 
 const CARD_ELEMENT_OPTIONS: StripeCardElementOptions = {
   hidePostalCode: true,
@@ -55,13 +39,14 @@ const CARD_ELEMENT_OPTIONS: StripeCardElementOptions = {
 };
 
 interface Props {
-  accountId: number;
+  platform?: string;
+  ownerUid: string;
   onClose: UnspecifiedCallbackFunction;
   open: boolean;
 }
 
 function ComputeCreditsStripeDialog(props: Props) {
-  const { accountId, ...other } = props;
+  const { ownerUid, ...other } = props;
 
   const [credits, setCredits] = useState(100);
   const handleAmountChange = event => {
@@ -100,19 +85,37 @@ function ComputeCreditsStripeDialog(props: Props) {
     }
   };
 
+  const [commitComputeCreditsBuyMutation] = useMutation<ComputeCreditsStripeDialogMutation>(graphql`
+    mutation ComputeCreditsStripeDialogMutation($input: BuyComputeCreditsInput!) {
+      buyComputeCredits(input: $input) {
+        error
+        info {
+          uid
+          balanceInCredits
+          balanceInCredits
+        }
+      }
+    }
+  `);
   const stripeTokenHandler = (token: Token) => {
-    const input: BuyComputeCreditsInput = {
-      clientMutationId: 'buy-credits-' + props.accountId,
-      accountId: props.accountId.toString(10),
-      amountOfCredits: credits.toString(10),
-      paymentTokenId: token.id,
-      receiptEmail: receiptEmail,
+    const variables: ComputeCreditsStripeDialogMutationVariables = {
+      input: {
+        clientMutationId: 'buy-credits-' + props.ownerUid,
+        platform: props.platform || 'github',
+        ownerUid: props.ownerUid,
+        amountOfCredits: credits.toString(10),
+        paymentTokenId: token.id,
+        receiptEmail: receiptEmail,
+      },
     };
 
-    commitMutation(environment, {
-      mutation: computeCreditsBuyMutation,
-      variables: { input: input },
-      onCompleted: (response: ComputeCreditsStripeDialogMutationResponse) => {
+    commitComputeCreditsBuyMutation({
+      variables: variables,
+      onCompleted: (response: ComputeCreditsStripeDialogMutationResponse, errors) => {
+        if (errors) {
+          setError(errors);
+          return;
+        }
         setPaymentInProgress(false);
         if (response.buyComputeCredits.error && response.buyComputeCredits.error !== '') {
           setError(response.buyComputeCredits.error);
@@ -136,26 +139,14 @@ function ComputeCreditsStripeDialog(props: Props) {
           <InputLabel htmlFor="credits-amount">Amount of Credits to Buy</InputLabel>
           <Input
             id="credits-amount"
+            error={credits < 20}
             value={credits.toLocaleString('en-US', { useGrouping: true })}
             inputMode="decimal"
             onChange={handleAmountChange}
           />
-          <Typography variant="subtitle1">
-            <p></p>
-            <p>This amount of compute credits is equal to one of the following:</p>
-            <ul>
-              <li>
-                {(200 * credits).toLocaleString('en-US', { useGrouping: true })} minutes of 1 virtual CPU for Linux
-              </li>
-              <li>
-                {(100 * credits).toLocaleString('en-US', { useGrouping: true })} minutes of 1 virtual CPU for Windows
-              </li>
-              <li>
-                {Math.ceil((100 * credits) / 3).toLocaleString('en-US', { useGrouping: true })} minutes of 1 real CPU
-                with hyper-threading enabled for macOS.
-              </li>
-            </ul>
-          </Typography>
+          <FormHelperText id="credits-amount-helper-text" hidden={credits >= 20}>
+            The minimum amount of credits you can buy is 20.
+          </FormHelperText>
         </FormControl>
         <FormControl fullWidth>
           <CardElement
@@ -186,7 +177,7 @@ function ComputeCreditsStripeDialog(props: Props) {
   );
 }
 
-export default function (props: Props) {
+export default function ComputeCreditsStripeDialogComponent(props: Props) {
   // Setup Stripe.js and the Elements provider
   const stripe = (window as any).Stripe('pk_live_85E3GON1qCUa1i4Kz9AU76Xo');
   return (

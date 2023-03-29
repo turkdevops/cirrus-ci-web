@@ -1,40 +1,39 @@
 import React from 'react';
 
-import { QueryRenderer } from 'react-relay';
+import { useLazyLoadQuery } from 'react-relay';
 import { graphql } from 'babel-plugin-relay/macro';
 
-import environment from '../../createRelayEnvironment';
 import BuildDetails from '../../components/builds/BuildDetails';
-import CirrusLinearProgress from '../../components/common/CirrusLinearProgress';
 import NotFound from '../NotFound';
-import { RouteComponentProps } from 'react-router';
 import { BuildByIdQuery } from './__generated__/BuildByIdQuery.graphql';
+import { useParams } from 'react-router-dom';
+import AppBreadcrumbs from '../../components/common/AppBreadcrumbs';
 
-interface MatchParams {
-  buildId: string;
-}
+export default function BuildById(): JSX.Element {
+  let { buildId } = useParams();
 
-interface Props extends RouteComponentProps<MatchParams> {}
-
-export default (props: Props) => (
-  <QueryRenderer<BuildByIdQuery>
-    environment={environment}
-    variables={props.match.params}
-    query={graphql`
+  const response = useLazyLoadQuery<BuildByIdQuery>(
+    graphql`
       query BuildByIdQuery($buildId: ID!) {
         build(id: $buildId) {
           ...BuildDetails_build
+          ...AppBreadcrumbs_build
+        }
+        viewer {
+          ...AppBreadcrumbs_viewer
         }
       }
-    `}
-    render={({ error, props }) => {
-      if (!props) {
-        return <CirrusLinearProgress />;
-      }
-      if (!props.build) {
-        return <NotFound message={error} />;
-      }
-      return <BuildDetails build={props.build} />;
-    }}
-  />
-);
+    `,
+    { buildId },
+  );
+
+  if (!response.build) {
+    return <NotFound />;
+  }
+  return (
+    <>
+      <AppBreadcrumbs build={response.build} viewer={response.viewer} />
+      <BuildDetails build={response.build} />
+    </>
+  );
+}

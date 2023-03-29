@@ -1,22 +1,36 @@
 import React from 'react';
 
-import Routes from './Routes';
+import Routes from './AllRoutes';
 import { cirrusThemeOptions } from './cirrusTheme';
-import { createMuiTheme, ThemeProvider } from '@material-ui/core/styles';
+import { createTheme, StyledEngineProvider, Theme, ThemeProvider } from '@mui/material/styles';
 import CirrusFavicon from './components/common/CirrusFavicon';
-import { CssBaseline } from '@material-ui/core';
+import { CssBaseline } from '@mui/material';
 import { useRecoilValue } from 'recoil';
+import * as Sentry from '@sentry/react';
+import { RelayEnvironmentProvider } from 'react-relay';
+import environment from '../src/createRelayEnvironment';
 
-export default () => {
+declare module '@mui/styles/defaultTheme' {
+  // eslint-disable-next-line @typescript-eslint/no-empty-interface
+  interface DefaultTheme extends Theme {}
+}
+
+export default function App(): JSX.Element {
   const themeOptions = useRecoilValue(cirrusThemeOptions);
 
-  const theme = React.useMemo(() => createMuiTheme(themeOptions), [themeOptions]);
+  const theme = React.useMemo(() => createTheme(themeOptions), [themeOptions]);
 
   return (
-    <ThemeProvider theme={theme}>
-      <CirrusFavicon />
-      <CssBaseline />
-      <Routes />
-    </ThemeProvider>
+    <RelayEnvironmentProvider environment={environment}>
+      <StyledEngineProvider injectFirst>
+        <ThemeProvider theme={theme}>
+          <CirrusFavicon />
+          <CssBaseline />
+          <Sentry.ErrorBoundary>
+            <Routes />
+          </Sentry.ErrorBoundary>
+        </ThemeProvider>
+      </StyledEngineProvider>
+    </RelayEnvironmentProvider>
   );
-};
+}

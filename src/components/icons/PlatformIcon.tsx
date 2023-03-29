@@ -1,13 +1,13 @@
 import React from 'react';
 import { faApple, faFreebsd, faLinux, faWindows } from '@fortawesome/free-brands-svg-icons';
 import FontAwesomeIcon from './FontAwesomeIcon';
-import { SvgIconProps } from '@material-ui/core';
+import { SvgIconProps } from '@mui/material';
 
 interface Props extends SvgIconProps {
   platform: string;
 }
 
-export default (props: Props) => {
+const PlatformIcon = (props: Props) => {
   switch (props.platform) {
     case 'darwin':
       return <FontAwesomeIcon {...props} icon={faApple} />;
@@ -19,3 +19,5 @@ export default (props: Props) => {
       return <FontAwesomeIcon {...props} icon={faLinux} />;
   }
 };
+
+export default PlatformIcon;

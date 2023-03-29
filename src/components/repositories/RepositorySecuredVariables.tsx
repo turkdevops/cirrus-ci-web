@@ -1,31 +1,37 @@
 import React, { useState } from 'react';
-import environment from '../../createRelayEnvironment';
-import { commitMutation, createFragmentContainer } from 'react-relay';
+import { useFragment, useMutation } from 'react-relay';
 import { graphql } from 'babel-plugin-relay/macro';
-import Button from '@material-ui/core/Button';
-import Card from '@material-ui/core/Card';
-import CardActions from '@material-ui/core/CardActions';
-import CardContent from '@material-ui/core/CardContent';
-import CardHeader from '@material-ui/core/CardHeader';
-import FormControl from '@material-ui/core/FormControl';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import CardActions from '@mui/material/CardActions';
+import CardContent from '@mui/material/CardContent';
+import CardHeader from '@mui/material/CardHeader';
+import FormControl from '@mui/material/FormControl';
 import CopyPasteField from '../common/CopyPasteField';
-import TextField from '@material-ui/core/TextField';
-import { RepositorySecuredVariables_repository } from './__generated__/RepositorySecuredVariables_repository.graphql';
-import { RepositorySecuredVariablesMutationResponse } from './__generated__/RepositorySecuredVariablesMutation.graphql';
-
-const securedVariableMutation = graphql`
-  mutation RepositorySecuredVariablesMutation($input: RepositorySecuredVariableInput!) {
-    securedVariable(input: $input) {
-      variableName
-    }
-  }
-`;
+import TextField from '@mui/material/TextField';
+import { RepositorySecuredVariables_repository$key } from './__generated__/RepositorySecuredVariables_repository.graphql';
+import {
+  RepositorySecuredVariablesMutation,
+  RepositorySecuredVariablesMutationResponse,
+  RepositorySecuredVariablesMutationVariables,
+} from './__generated__/RepositorySecuredVariablesMutation.graphql';
 
 interface Props {
-  repository: RepositorySecuredVariables_repository;
+  repository: RepositorySecuredVariables_repository$key;
 }
 
-function RepositorySecuredVariables(props: Props) {
+export default function RepositorySecuredVariables(props: Props) {
+  let repository = useFragment(
+    graphql`
+      fragment RepositorySecuredVariables_repository on Repository {
+        id
+        owner
+        name
+      }
+    `,
+    props.repository,
+  );
+
   let [inputValue, setInputValue] = useState('');
   let [securedVariableName, setSecuredVariableName] = useState(undefined);
 
@@ -37,20 +43,30 @@ function RepositorySecuredVariables(props: Props) {
     securedComponent = <CopyPasteField name="securedVariable" fullWidth={true} value={valueForYAMLFile} />;
   }
 
+  const [commitSecuredVariableMutation] = useMutation<RepositorySecuredVariablesMutation>(graphql`
+    mutation RepositorySecuredVariablesMutation($input: RepositorySecuredVariableInput!) {
+      securedVariable(input: $input) {
+        variableName
+      }
+    }
+  `);
   function encryptCurrentValue() {
     let valueToSecure = inputValue;
-    const variables = {
+    const variables: RepositorySecuredVariablesMutationVariables = {
       input: {
-        clientMutationId: props.repository.name, // todo: replace with a hash of valueToSecure
-        repositoryId: parseInt(props.repository.id, 10),
+        clientMutationId: repository.name, // todo: replace with a hash of valueToSecure
+        repositoryId: repository.id,
         valueToSecure: valueToSecure,
       },
     };
 
-    commitMutation(environment, {
-      mutation: securedVariableMutation,
+    commitSecuredVariableMutation({
       variables: variables,
-      onCompleted: (response: RepositorySecuredVariablesMutationResponse) => {
+      onCompleted: (response: RepositorySecuredVariablesMutationResponse, errors) => {
+        if (errors) {
+          console.log(errors);
+          return;
+        }
         setInputValue(valueToSecure);
         setSecuredVariableName(response.securedVariable.variableName);
       },
@@ -59,7 +75,7 @@ function RepositorySecuredVariables(props: Props) {
   }
 
   return (
-    <Card>
+    <Card elevation={24}>
       <CardHeader title="Secured Variables" />
       <CardContent>
         <FormControl style={{ width: '100%' }}>
@@ -67,7 +83,6 @@ function RepositorySecuredVariables(props: Props) {
             name="securedVariableValue"
             placeholder="Enter value to create a secure variable for"
             value={inputValue}
-            disabled={securedVariableName !== undefined}
             onChange={event => setInputValue(event.target.value)}
             multiline={true}
             fullWidth={true}
@@ -83,13 +98,3 @@ function RepositorySecuredVariables(props: Props) {
     </Card>
   );
 }
-
-export default createFragmentContainer(RepositorySecuredVariables, {
-  repository: graphql`
-    fragment RepositorySecuredVariables_repository on Repository {
-      id
-      owner
-      name
-    }
-  `,
-});

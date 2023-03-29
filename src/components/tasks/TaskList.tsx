@@ -1,7 +1,7 @@
 import React from 'react';
 
-import Table from '@material-ui/core/Table';
-import TableBody from '@material-ui/core/TableBody';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
 import TaskListRow from './TaskListRow';
 import { FragmentRefs } from 'relay-runtime';
 
@@ -92,7 +92,7 @@ function topologicalSort(tasks: ReadonlyArray<Task>): ReadonlyArray<{
   return result;
 }
 
-export default (props: Props) => {
+export default function TaskList(props: Props): JSX.Element {
   let visualDataItems = topologicalSort(props.tasks || []);
   return (
     <Table style={{ tableLayout: 'auto' }}>
@@ -109,4 +109,4 @@ export default (props: Props) => {
       </TableBody>
     </Table>
   );
-};
+}
