@@ -1,17 +1,18 @@
 import React from 'react';
-
 import { useLazyLoadQuery } from 'react-relay';
+import { useParams } from 'react-router-dom';
+
 import { graphql } from 'babel-plugin-relay/macro';
 
-import OwnerSettings from '../../components/settings/OwnerSettings';
-import { OwnerSettingsRendererQuery } from './__generated__/OwnerSettingsRendererQuery.graphql';
-import { useParams } from 'react-router-dom';
-import AppBreadcrumbs from '../../components/common/AppBreadcrumbs';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 
-export default function OwnerSettingsRenderer(): JSX.Element {
-  let { platform, name } = useParams();
+import AppBreadcrumbs from 'components/common/AppBreadcrumbs';
+import OwnerSettings from 'components/settings/OwnerSettings';
+import NotFound from 'scenes/NotFound';
 
+import { OwnerSettingsRendererQuery } from './__generated__/OwnerSettingsRendererQuery.graphql';
+
+function OwnerSettingsRendererFor(platform: string, name: string) {
   const response = useLazyLoadQuery<OwnerSettingsRendererQuery>(
     graphql`
       query OwnerSettingsRendererQuery($platform: String!, $name: String!) {
@@ -26,6 +27,10 @@ export default function OwnerSettingsRenderer(): JSX.Element {
     `,
     { platform, name },
   );
+
+  if (!response.ownerInfoByName) {
+    return <NotFound />;
+  }
 
   return (
     <>
@@ -42,4 +47,14 @@ export default function OwnerSettingsRenderer(): JSX.Element {
       <OwnerSettings info={response.ownerInfoByName} />
     </>
   );
+}
+
+export default function OwnerSettingsRenderer() {
+  let { platform, name } = useParams();
+
+  if (!platform || !name) {
+    return <NotFound />;
+  }
+
+  return OwnerSettingsRendererFor(platform, name);
 }

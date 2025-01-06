@@ -1,28 +1,26 @@
+import * as Sentry from '@sentry/react';
 import React, { Suspense } from 'react';
-
-import { useCommandStatusColorMapping } from '../../utils/colors';
-import TaskCommandLogs from './TaskCommandLogs';
-import { formatDuration } from '../../utils/time';
-import { isTaskCommandExecuting, isTaskCommandFinalStatus } from '../../utils/status';
-import DurationTicker from '../common/DurationTicker';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import Accordion from '@mui/material/Accordion';
-import AccordionDetails from '@mui/material/AccordionDetails';
-import AccordionSummary from '@mui/material/AccordionSummary';
-import Typography from '@mui/material/Typography';
 import { useFragment } from 'react-relay';
-import { graphql } from 'babel-plugin-relay/macro';
-import * as queryString from 'query-string';
-import { TaskCommandList_task, TaskCommandList_task$key } from './__generated__/TaskCommandList_task.graphql';
-import { ItemOfArray } from '../../utils/utility-types';
 import { useLocation } from 'react-router-dom';
-import { makeStyles } from '@mui/styles';
-import { Box, useTheme } from '@mui/material';
-import { useRecoilValue } from 'recoil';
-import { prefersDarkModeState } from '../../cirrusTheme';
-import CirrusCircularProgress from '../common/CirrusCircularProgress';
 
-const useStyles = makeStyles(theme => {
+import { graphql } from 'babel-plugin-relay/macro';
+import queryString from 'query-string';
+import { useRecoilValue } from 'recoil';
+
+import { prefersDarkModeState } from 'cirrusTheme';
+import mui from 'mui';
+
+import CirrusCircularProgress from 'components/common/CirrusCircularProgress';
+import DurationTicker from 'components/common/DurationTicker';
+import { useCommandStatusColorMapping } from 'utils/colors';
+import { isTaskCommandExecuting, isTaskCommandFinalStatus } from 'utils/status';
+import { formatDuration } from 'utils/time';
+import { ItemOfArray } from 'utils/utility-types';
+
+import TaskCommandLogs from './TaskCommandLogs';
+import { TaskCommandList_task$key, TaskCommandList_task$data } from './__generated__/TaskCommandList_task.graphql';
+
+const useStyles = mui.makeStyles(theme => {
   return {
     details: {
       padding: 0,
@@ -32,6 +30,7 @@ const useStyles = makeStyles(theme => {
 
 interface Props {
   task: TaskCommandList_task$key;
+  stripTimestamps?: boolean;
 }
 
 export default function TaskCommandList(props: Props) {
@@ -55,14 +54,17 @@ export default function TaskCommandList(props: Props) {
   let classes = useStyles();
   let commands = task.commands;
 
-  let commandComponents = [];
+  let commandComponents: Array<JSX.Element> = [];
   let lastTimestamp = task.executingTimestamp;
   let colorMapping = useCommandStatusColorMapping();
   let location = useLocation();
-  let theme = useTheme();
+  let theme = mui.useTheme();
   const prefersDarkMode = useRecoilValue(prefersDarkModeState);
 
-  function commandItem(command: ItemOfArray<TaskCommandList_task['commands']>, commandStartTimestamp: number) {
+  function commandItem(
+    command: ItemOfArray<TaskCommandList_task$data['commands']>,
+    commandStartTimestamp: number | null = null,
+  ) {
     let search = queryString.parse(location.search);
     const selectedCommandName = search.command || search.logs;
     let summaryStyle = prefersDarkMode
@@ -93,7 +95,7 @@ export default function TaskCommandList(props: Props) {
     }
 
     return (
-      <Box
+      <mui.Box
         key={command.name}
         sx={{
           borderStyle: 'hidden hidden hidden solid',
@@ -101,42 +103,44 @@ export default function TaskCommandList(props: Props) {
           borderColor: colorMapping[command.status],
         }}
       >
-        <Accordion
+        <mui.Accordion
           TransitionProps={{ unmountOnExit: true, timeout: 400 }}
           style={{ backgroundColor: 'transparent' }}
           disabled={command.status === 'SKIPPED'}
           defaultExpanded={command.name === selectedCommandName || command.status === 'FAILURE'}
         >
-          <AccordionSummary expandIcon={<ExpandMoreIcon />} style={summaryStyle}>
+          <mui.AccordionSummary expandIcon={<mui.icons.ExpandMore />} style={summaryStyle}>
             <div>
-              <Typography variant="body1">{topText}</Typography>
-              <Typography variant="caption">
+              <mui.Typography variant="body1">{topText}</mui.Typography>
+              <mui.Typography variant="caption">
                 {command.status === 'SKIPPED' ? (
                   'skipped'
                 ) : finished ? (
                   formatDuration(command.durationInSeconds)
-                ) : isTaskCommandExecuting(command.status) ? (
+                ) : isTaskCommandExecuting(command.status) && commandStartTimestamp ? (
                   <DurationTicker startTimestamp={commandStartTimestamp} />
                 ) : (
                   ''
                 )}
-              </Typography>
+              </mui.Typography>
             </div>
-          </AccordionSummary>
-          <AccordionDetails className={classes.details}>
-            <Suspense fallback={<CirrusCircularProgress />}>
-              <TaskCommandLogs taskId={task.id} command={command} />
-            </Suspense>
-          </AccordionDetails>
-        </Accordion>
-      </Box>
+          </mui.AccordionSummary>
+          <mui.AccordionDetails className={classes.details}>
+            <Sentry.ErrorBoundary fallback={<CirrusCircularProgress />}>
+              <Suspense fallback={<CirrusCircularProgress />}>
+                <TaskCommandLogs taskId={task.id} command={command} stripTimestamps={props.stripTimestamps} />
+              </Suspense>
+            </Sentry.ErrorBoundary>
+          </mui.AccordionDetails>
+        </mui.Accordion>
+      </mui.Box>
     );
   }
 
   for (let i = 0; i < commands.length; ++i) {
     let command = commands[i];
     commandComponents.push(commandItem(command, lastTimestamp));
-    lastTimestamp += command.durationInSeconds * 1000;
+    if (lastTimestamp) lastTimestamp += command.durationInSeconds * 1000;
   }
   return <div>{commandComponents}</div>;
 }

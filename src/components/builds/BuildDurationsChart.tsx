@@ -1,24 +1,25 @@
-import React from 'react';
-import { Bar, BarChart, Rectangle, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { useBuildStatusColorMapping } from '../../utils/colors';
-import { formatDuration } from '../../utils/time';
-import { navigateBuildHelper } from '../../utils/navigateHelper';
-import { NodeOfConnection, UnspecifiedCallbackFunction } from '../../utils/utility-types';
-import { RepositoryBuildList_repository } from '../repositories/__generated__/RepositoryBuildList_repository.graphql';
-import { withStyles } from '@mui/styles';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Paper, Typography } from '@mui/material';
+
+import { Bar, BarChart, Rectangle, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+
+import mui from 'mui';
+
+import { RepositoryBuildList_repository$data } from 'components/repositories/__generated__/RepositoryBuildList_repository.graphql';
+import { useBuildStatusColorMapping } from 'utils/colors';
+import { navigateBuildHelper } from 'utils/navigateHelper';
+import { formatDuration } from 'utils/time';
+import { NodeOfConnection } from 'utils/utility-types';
 
 interface Props {
-  builds: NodeOfConnection<RepositoryBuildList_repository['builds']>[];
-  selectedBuildId: string;
-  onSelectBuildId: UnspecifiedCallbackFunction;
+  builds: NodeOfConnection<RepositoryBuildList_repository$data['builds']>[];
 }
 
 function BuildDurationsChart(props: Props) {
+  let [selectedBuildId, setSelectedBuildId] = useState<string | null>(null);
   let navigate = useNavigate();
   let statusColorMapping = useBuildStatusColorMapping();
-  let { builds, selectedBuildId, onSelectBuildId } = props;
+  let { builds } = props;
   let maxDuration = Math.max(...builds.map(build => build.clockDurationInSeconds || 0));
   let ticks = [0];
   for (let nextTick = 60; nextTick < maxDuration; nextTick += 60) {
@@ -30,11 +31,11 @@ function BuildDurationsChart(props: Props) {
     let payloadElement = payload[0];
     if (!payloadElement) return null;
     return (
-      <Paper>
-        <Typography style={{ margin: 4 }}>
+      <mui.Paper>
+        <mui.Typography style={{ margin: 4 }}>
           {formatDuration(payloadElement.value)} {label}
-        </Typography>
-      </Paper>
+        </mui.Typography>
+      </mui.Paper>
     );
   };
 
@@ -51,6 +52,7 @@ function BuildDurationsChart(props: Props) {
           height={height + sign * 2}
           fill={statusColorMapping[props.status]}
           className="recharts-bar-rectangle"
+          cursor="pointer"
         />
       );
     }
@@ -68,12 +70,12 @@ function BuildDurationsChart(props: Props) {
           isAnimationActive={false}
           shape={props => renderBuildBar(props, selectedBuildId)}
           onClick={(build, index, event) => navigateBuildHelper(navigate, event, build.id)}
-          onMouseEnter={entry => onSelectBuildId(entry.id)}
-          onMouseLeave={() => onSelectBuildId('0')}
+          onMouseEnter={entry => setSelectedBuildId(entry.id)}
+          onMouseLeave={() => setSelectedBuildId('0')}
         />
       </BarChart>
     </ResponsiveContainer>
   );
 }
 
-export default withStyles({})(BuildDurationsChart);
+export default mui.withStyles({})(BuildDurationsChart);

@@ -1,10 +1,13 @@
 import React from 'react';
+
 import DialogContent from '@mui/material/DialogContent/DialogContent';
-import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
-import { DeliveryInfoDialogLazyContentQueryResponse } from './__generated__/DeliveryInfoDialogLazyContentQuery.graphql';
+import Tabs from '@mui/material/Tabs';
 import { makeStyles } from '@mui/styles';
-import MarkdownTypography from '../common/MarkdownTypography';
+
+import MarkdownTypography from 'components/common/MarkdownTypography';
+
+import { DeliveryInfoDialogLazyContentQuery$data } from './__generated__/DeliveryInfoDialogLazyContentQuery.graphql';
 
 const useStyles = makeStyles(theme => {
   return {
@@ -15,7 +18,7 @@ const useStyles = makeStyles(theme => {
 });
 
 interface Props {
-  delivery: DeliveryInfoDialogLazyContentQueryResponse['webhookDelivery'];
+  delivery: DeliveryInfoDialogLazyContentQuery$data['webhookDelivery'];
 }
 
 function DeliveryInfoDialogContent(props: Props) {
@@ -25,10 +28,16 @@ function DeliveryInfoDialogContent(props: Props) {
   let classes = useStyles();
 
   let payloadTab = (
-    <MarkdownTypography className={classes.markdown} text={'```json\n' + delivery.payload.data + '\n```'} />
+    <MarkdownTypography
+      className={classes.markdown}
+      text={delivery ? '```json\n' + delivery.payload.data + '\n```' : ''}
+    />
   );
   let responseTab = (
-    <MarkdownTypography className={classes.markdown} text={'```\n' + delivery.response.data + '\n```'} />
+    <MarkdownTypography
+      className={classes.markdown}
+      text={delivery ? '```\n' + delivery.response.data + '\n```' : ''}
+    />
   );
 
   return (

@@ -1,6 +1,7 @@
 import React from 'react';
-import { makeStyles } from '@mui/styles';
+
 import { Typography } from '@mui/material';
+import { makeStyles } from '@mui/styles';
 
 const useStyles = makeStyles(theme => {
   return {
@@ -28,6 +29,7 @@ const useStyles = makeStyles(theme => {
       width: '1%',
       minWidth: theme.spacing(5),
       textAlign: 'right',
+      userSelect: 'none',
     },
     lineContent: {
       fontFamily: 'Monaco, monospace',

@@ -1,10 +1,11 @@
-import { useEffect } from 'react';
-import { Helmet as Head } from 'react-helmet';
-import { Container, useTheme as useMuiTheme } from '@mui/material';
 import { useTheme as useGraphiqlTheme } from '@graphiql/react';
+import { useEffect } from 'react';
+
 import { GraphiQLInterface, GraphiQLProvider } from 'graphiql';
-import { makeStyles } from '@mui/styles';
 import 'graphiql/graphiql.css';
+
+import { Container, useTheme as useMuiTheme } from '@mui/material';
+import { makeStyles } from '@mui/styles';
 
 const useStyles = makeStyles(theme => {
   return {
@@ -59,11 +60,12 @@ const Content = () => {
     setGraphiqlTheme(muiTheme);
   }, [muiTheme, setGraphiqlTheme]);
 
+  useEffect(() => {
+    document.title = 'API Explorer - Cirrus CI';
+  }, []);
+
   return (
     <div className={classes.root}>
-      <Head>
-        <title>API Explorer - Cirrus CI</title>
-      </Head>
       <Container maxWidth="lg">
         <GraphiQLInterface />
       </Container>

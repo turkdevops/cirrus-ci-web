@@ -1,4 +1,4 @@
-FROM node:current as builder
+FROM node:20.2.0 as builder
 
 ARG CIRRUS_CHANGE_IN_REPO
 ARG SENTRY_DSN
@@ -19,7 +19,7 @@ ENV REACT_APP_SENTRY_DSN=$SENTRY_DSN
 ADD . /tmp/cirrus-ci-web/
 RUN yarn bootstrap && yarn build && rm -rf build/service-worker.js
 
-FROM node:current-alpine
+FROM node:20.2.0-alpine
 
 WORKDIR /svc/cirrus-ci-web
 EXPOSE 8080
@@ -27,7 +27,7 @@ EXPOSE 8080
 COPY --from=builder /tmp/cirrus-ci-web/serve.json /svc/cirrus-ci-web/serve.json
 COPY --from=builder /tmp/cirrus-ci-web/build/ /svc/cirrus-ci-web/
 
-RUN npm install -g serve@14.1.2
+RUN npm install -g serve@14.2.1
 
 CMD serve --single \
           --listen 8080 \

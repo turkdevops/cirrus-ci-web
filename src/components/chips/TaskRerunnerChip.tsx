@@ -1,10 +1,11 @@
 import React from 'react';
+import { useFragment } from 'react-relay';
+
+import { graphql } from 'babel-plugin-relay/macro';
 
 import Avatar from '@mui/material/Avatar';
 import Chip from '@mui/material/Chip';
 
-import { useFragment } from 'react-relay';
-import { graphql } from 'babel-plugin-relay/macro';
 import { TaskRerunnerChip_task$key } from './__generated__/TaskRerunnerChip_task.graphql';
 
 interface Props {
@@ -28,5 +29,7 @@ export default function TaskRerunnerChip(props: Props) {
 
   if (!reranBy) return <></>;
 
-  return <Chip className={props.className} label="Re-ran by a user" avatar={<Avatar src={reranBy.avatarURL} />} />;
+  return (
+    <Chip className={props.className} label="Re-run by a user" avatar={<Avatar src={reranBy.avatarURL || ''} />} />
+  );
 }

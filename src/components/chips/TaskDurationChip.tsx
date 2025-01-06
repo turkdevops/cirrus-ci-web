@@ -1,15 +1,20 @@
+import React, { useEffect, useMemo } from 'react';
+import { useFragment, requestSubscription } from 'react-relay';
+
+import { graphql } from 'babel-plugin-relay/macro';
+
+import { useTheme } from '@mui/material';
 import Avatar from '@mui/material/Avatar';
 import Chip from '@mui/material/Chip';
 import Icon from '@mui/material/Icon';
-import { graphql } from 'babel-plugin-relay/macro';
-import React, { useEffect, useMemo } from 'react';
-import { useFragment, requestSubscription } from 'react-relay';
-import environment from '../../createRelayEnvironment';
-import { useTaskStatusColor } from '../../utils/colors';
-import { isTaskFinalStatus, isTaskInProgressStatus, taskStatusIconName } from '../../utils/status';
-import { formatDuration } from '../../utils/time';
+
+import environment from 'createRelayEnvironment';
+
+import { useTaskStatusColor } from 'utils/colors';
+import { isTaskFinalStatus, isTaskInProgressStatus, taskStatusIconName } from 'utils/status';
+import { formatDuration } from 'utils/time';
+
 import { TaskDurationChip_task$key } from './__generated__/TaskDurationChip_task.graphql';
-import { useTheme } from '@mui/material';
 
 const taskSubscription = graphql`
   subscription TaskDurationChipSubscription($taskID: ID!) {
@@ -76,7 +81,7 @@ export default function TaskDurationChip(props: Props) {
   if (!isTaskInProgressStatus(task.status) && !isFinalStatus) {
     durationInSeconds = 0;
   } else if (!isFinalStatus) {
-    let timestamp = Math.max(task.creationTimestamp, task.scheduledTimestamp, task.executingTimestamp);
+    let timestamp = Math.max(task.creationTimestamp, task.scheduledTimestamp || 0, task.executingTimestamp || 0);
     durationInSeconds = (Date.now() - timestamp) / 1000;
   }
 

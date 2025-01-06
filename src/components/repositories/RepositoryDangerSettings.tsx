@@ -1,20 +1,24 @@
 import React from 'react';
 import { useMutation, useFragment } from 'react-relay';
+import { useNavigate } from 'react-router-dom';
+
 import { graphql } from 'babel-plugin-relay/macro';
+
+import { ListItem, ListItemText } from '@mui/material';
+import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import CardHeader from '@mui/material/CardHeader';
-import { RepositoryDangerSettings_repository$key } from './__generated__/RepositoryDangerSettings_repository.graphql';
-import { navigateHelper } from '../../utils/navigateHelper';
-import { useNavigate } from 'react-router-dom';
+import List from '@mui/material/List';
+
+import { navigateHelper } from 'utils/navigateHelper';
+
 import {
   RepositoryDangerSettingsDeleteMutation,
-  RepositoryDangerSettingsDeleteMutationResponse,
-  RepositoryDangerSettingsDeleteMutationVariables,
+  RepositoryDangerSettingsDeleteMutation$data,
+  RepositoryDangerSettingsDeleteMutation$variables,
 } from './__generated__/RepositoryDangerSettingsDeleteMutation.graphql';
-import { ListItem, ListItemText } from '@mui/material';
-import Button from '@mui/material/Button';
-import List from '@mui/material/List';
+import { RepositoryDangerSettings_repository$key } from './__generated__/RepositoryDangerSettings_repository.graphql';
 
 interface Props {
   repository: RepositoryDangerSettings_repository$key;
@@ -42,7 +46,7 @@ export default function RepositoryDangerSettings(props: Props) {
     }
   `);
   function deleteCurrentRepository() {
-    const variables: RepositoryDangerSettingsDeleteMutationVariables = {
+    const variables: RepositoryDangerSettingsDeleteMutation$variables = {
       input: {
         clientMutationId: repository.name,
         repositoryId: repository.id,
@@ -51,7 +55,7 @@ export default function RepositoryDangerSettings(props: Props) {
 
     commitDeleteMutation({
       variables: variables,
-      onCompleted: (response: RepositoryDangerSettingsDeleteMutationResponse, errors) => {
+      onCompleted: (response: RepositoryDangerSettingsDeleteMutation$data, errors) => {
         if (errors) {
           console.log(errors);
         } else {

@@ -1,14 +1,20 @@
-import { subscribeObjectUpdates } from './rtu/ConnectionManager';
-
-import { Environment, Network, Observable, RecordSource, Store, SubscribeFunction } from 'relay-runtime';
 import * as Sentry from '@sentry/react';
+import { setHttpStatus } from '@sentry/react';
+
+import { SPAN_STATUS_ERROR } from '@sentry/core';
+import { Environment, Network, Observable, RecordSource, Store, SubscribeFunction } from 'relay-runtime';
+import { Sink } from 'relay-runtime/lib/network/RelayObservable';
 import { RequestParameters } from 'relay-runtime/lib/util/RelayConcreteNode';
-import { SpanStatus } from '@sentry/tracing';
+
+import { subscribeObjectUpdates } from 'rtu/ConnectionManager';
 
 /*
  * See RelayNetwork.js:43 for details how it used in Relay
  */
 let subscription: SubscribeFunction = (operation, variables, cacheConfig) => {
+  if (!operation.text) {
+    return;
+  }
   if (variables['taskID'] && operation.text.indexOf('commands') > 0) {
     return webSocketSubscriptions(operation, variables, [
       ['TASK', variables['taskID']],
@@ -30,7 +36,7 @@ let subscription: SubscribeFunction = (operation, variables, cacheConfig) => {
 };
 
 function webSocketSubscriptions(operation, variables, kind2id: Array<[string, string]>) {
-  let dataSource = null;
+  let dataSource: Sink<any> | null = null;
 
   let result = Observable.create(sink => {
     dataSource = sink;
@@ -55,12 +61,14 @@ async function fetchQuery(operation: RequestParameters, variables) {
     query: operation.text, // GraphQL text from input
     variables,
   };
-  let transaction = Sentry.startTransaction({
+  let span = Sentry.startInactiveSpan({
     op: 'gql',
     name: operation.name,
   });
-  transaction.setTag('operationKind', operation.operationKind);
-  transaction.setData('id', operation.id);
+  span.setAttribute('operationKind', operation.operationKind);
+  if (operation.id !== null) {
+    span.setAttribute('id', operation.id);
+  }
   try {
     const response = await fetch('https://api.cirrus-ci.com/graphql', {
       method: 'POST',
@@ -71,12 +79,13 @@ async function fetchQuery(operation: RequestParameters, variables) {
       },
       body: JSON.stringify(query),
     });
-    transaction.setHttpStatus(response.status);
-    return response.json();
+    setHttpStatus(span, response.status);
+    return await response.json();
   } catch (e) {
-    transaction.setStatus(SpanStatus.InternalError);
+    span.setStatus({ code: SPAN_STATUS_ERROR });
+    throw e;
   } finally {
-    transaction.finish();
+    span.end();
   }
 }
 
@@ -86,7 +95,8 @@ const network = Network.create(fetchQuery, subscription);
 const source = new RecordSource();
 const store = new Store(source);
 
-export default new Environment({
+let environment = new Environment({
   network,
   store,
 });
+export default environment;

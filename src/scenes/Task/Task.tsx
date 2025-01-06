@@ -1,17 +1,16 @@
 import React from 'react';
-
 import { useLazyLoadQuery } from 'react-relay';
+import { useParams } from 'react-router-dom';
+
 import { graphql } from 'babel-plugin-relay/macro';
 
-import TaskDetails from '../../components/tasks/TaskDetails';
-import NotFound from '../NotFound';
+import AppBreadcrumbs from 'components/common/AppBreadcrumbs';
+import TaskDetails from 'components/tasks/TaskDetails';
+import NotFound from 'scenes/NotFound';
+
 import { TaskQuery } from './__generated__/TaskQuery.graphql';
-import { useParams } from 'react-router-dom';
-import AppBreadcrumbs from '../../components/common/AppBreadcrumbs';
 
-export default function Task(): JSX.Element {
-  let { taskId } = useParams();
-
+function TaskById(taskId: string) {
   const response = useLazyLoadQuery<TaskQuery>(
     graphql`
       query TaskQuery($taskId: ID!) {
@@ -30,10 +29,21 @@ export default function Task(): JSX.Element {
   if (!response.task) {
     return <NotFound />;
   }
+
   return (
     <>
       <AppBreadcrumbs task={response.task} viewer={response.viewer} />
       <TaskDetails task={response.task} />
     </>
   );
+}
+
+export default function Task() {
+  let { taskId } = useParams();
+
+  if (!taskId) {
+    return <NotFound />;
+  }
+
+  return TaskById(taskId);
 }

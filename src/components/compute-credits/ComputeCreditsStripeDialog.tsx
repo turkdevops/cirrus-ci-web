@@ -1,42 +1,37 @@
-import React, { useState } from 'react';
-import DialogTitle from '@mui/material/DialogTitle';
-import Dialog from '@mui/material/Dialog';
-import DialogContent from '@mui/material/DialogContent';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
-import Input from '@mui/material/Input';
+import { CardElement, Elements, useStripe } from '@stripe/react-stripe-js';
+import React, { useState, useMemo } from 'react';
 import { useMutation } from 'react-relay';
+
+import { StripeCardElementOptions, Token, StripeCardElement } from '@stripe/stripe-js';
 import { graphql } from 'babel-plugin-relay/macro';
-import { UnspecifiedCallbackFunction } from '../../utils/utility-types';
+import cx from 'classnames';
+
+import mui from 'mui';
+
+import { UnspecifiedCallbackFunction } from 'utils/utility-types';
+
 import {
   ComputeCreditsStripeDialogMutation,
-  ComputeCreditsStripeDialogMutationResponse,
-  ComputeCreditsStripeDialogMutationVariables,
+  ComputeCreditsStripeDialogMutation$data,
+  ComputeCreditsStripeDialogMutation$variables,
 } from './__generated__/ComputeCreditsStripeDialogMutation.graphql';
-import { CardElement, Elements, useElements, useStripe } from '@stripe/react-stripe-js';
-import Button from '@mui/material/Button';
-import DialogActions from '@mui/material/DialogActions';
-import { StripeCardElementOptions, Token } from '@stripe/stripe-js';
-import { FormHelperText } from '@mui/material';
 
-const CARD_ELEMENT_OPTIONS: StripeCardElementOptions = {
-  hidePostalCode: true,
-  style: {
-    base: {
-      color: '#32325d',
-      fontFamily: '"Helvetica Neue", Helvetica, sans-serif',
-      fontSmoothing: 'antialiased',
-      fontSize: '16px',
-      '::placeholder': {
-        color: '#aab7c4',
+const useStyles = mui.makeStyles(theme => {
+  return {
+    inputLabel: {
+      '&.Mui-focused': {
+        color: theme.palette.text.primary,
       },
     },
-    invalid: {
-      color: '#fa755a',
-      iconColor: '#fa755a',
+    cardInput: {
+      '&.StripeElement': {
+        padding: theme.spacing(1),
+        border: `1px solid ${theme.palette.divider}`,
+        borderRadius: theme.shape.borderRadius,
+      },
     },
-  },
-};
+  };
+});
 
 interface Props {
   platform?: string;
@@ -46,19 +41,42 @@ interface Props {
 }
 
 function ComputeCreditsStripeDialog(props: Props) {
+  const theme = mui.useTheme();
+  const classes = useStyles();
+  const stripe = useStripe();
   const { ownerUid, ...other } = props;
+  const [credits, setCredits] = useState(20);
+  const [receiptEmail, setReceiptEmail] = useState('');
+  const [paymentInProgress, setPaymentInProgress] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [card, setCard] = useState<StripeCardElement | null>(null);
 
-  const [credits, setCredits] = useState(100);
+  const CARD_ELEMENT_OPTIONS: StripeCardElementOptions = useMemo(
+    () => ({
+      hidePostalCode: true,
+
+      style: {
+        base: {
+          color: theme.palette.text.primary,
+          fontFamily: '"Helvetica Neue", Helvetica, sans-serif',
+          fontSmoothing: 'antialiased',
+          fontSize: '16px',
+          '::placeholder': {
+            color: '#aab7c4',
+          },
+        },
+        invalid: {
+          color: '#fa755a',
+          iconColor: '#fa755a',
+        },
+      },
+    }),
+    [theme.palette.text.primary],
+  );
+
   const handleAmountChange = event => {
     setCredits(parseInt((event.target.value || '0').replace(/,/g, ''), 10));
   };
-  const [receiptEmail, setReceiptEmail] = useState('');
-
-  const [paymentInProgress, setPaymentInProgress] = useState(false);
-
-  const [error, setError] = useState(null);
-  const stripe = useStripe();
-  const elements = useElements();
 
   const handleChange = event => {
     if (event.error) {
@@ -68,15 +86,19 @@ function ComputeCreditsStripeDialog(props: Props) {
     }
   };
 
+  const submitDisabled = useMemo(() => !stripe || !card || paymentInProgress, [stripe, card, paymentInProgress]);
+
   // Handle form submission.
   const handleSubmit = async event => {
+    if (!stripe || !card) return;
+
     event.preventDefault();
     setPaymentInProgress(true);
-    const card = elements.getElement(CardElement);
+
     const result = await stripe.createToken(card);
     if (result.error) {
       // Inform the user if there was an error.
-      setError(result.error.message);
+      setError(result.error.message!);
       setPaymentInProgress(false);
     } else {
       setError(null);
@@ -97,8 +119,9 @@ function ComputeCreditsStripeDialog(props: Props) {
       }
     }
   `);
+
   const stripeTokenHandler = (token: Token) => {
-    const variables: ComputeCreditsStripeDialogMutationVariables = {
+    const variables: ComputeCreditsStripeDialogMutation$variables = {
       input: {
         clientMutationId: 'buy-credits-' + props.ownerUid,
         platform: props.platform || 'github',
@@ -111,9 +134,9 @@ function ComputeCreditsStripeDialog(props: Props) {
 
     commitComputeCreditsBuyMutation({
       variables: variables,
-      onCompleted: (response: ComputeCreditsStripeDialogMutationResponse, errors) => {
-        if (errors) {
-          setError(errors);
+      onCompleted: (response: ComputeCreditsStripeDialogMutation$data, errors) => {
+        if (errors && errors.length > 0) {
+          setError(errors[0].message);
           return;
         }
         setPaymentInProgress(false);
@@ -124,56 +147,65 @@ function ComputeCreditsStripeDialog(props: Props) {
           props.onClose();
         }
       },
-      onError: err => {
+      onError: error => {
         setPaymentInProgress(false);
-        setError(err);
+        setError(error.message);
       },
     });
   };
 
   return (
-    <Dialog {...other}>
-      <DialogTitle>Buy Compute Credits</DialogTitle>
-      <DialogContent>
-        <FormControl fullWidth>
-          <InputLabel htmlFor="credits-amount">Amount of Credits to Buy</InputLabel>
-          <Input
+    <mui.Dialog {...other}>
+      <mui.DialogTitle>Buy Compute Credits</mui.DialogTitle>
+      <mui.DialogContent sx={{ overflowY: 'visible' }}>
+        <mui.FormControl fullWidth variant="standard">
+          <mui.InputLabel htmlFor="credits-amount" className={classes.inputLabel}>
+            Amount of Credits to Buy
+          </mui.InputLabel>
+          <mui.Input
             id="credits-amount"
             error={credits < 20}
             value={credits.toLocaleString('en-US', { useGrouping: true })}
             inputMode="decimal"
             onChange={handleAmountChange}
+            autoFocus
           />
-          <FormHelperText id="credits-amount-helper-text" hidden={credits >= 20}>
+          <mui.FormHelperText id="credits-amount-helper-text" error={credits < 20}>
             The minimum amount of credits you can buy is 20.
-          </FormHelperText>
-        </FormControl>
-        <FormControl fullWidth>
-          <CardElement
-            id="card-element"
-            className="form-control"
-            options={CARD_ELEMENT_OPTIONS}
-            onChange={handleChange}
-          />
-        </FormControl>
-        <FormControl fullWidth required={true}>
-          <InputLabel htmlFor="receipt-email">Receipt Email</InputLabel>
-          <Input
+          </mui.FormHelperText>
+        </mui.FormControl>
+
+        <mui.FormControl fullWidth required={true} variant="standard">
+          <mui.InputLabel htmlFor="receipt-email" className={classes.inputLabel}>
+            Receipt Email
+          </mui.InputLabel>
+          <mui.Input
             id="receipt-email"
             value={receiptEmail}
             inputMode="email"
-            error={!/\S+@\S+\.\S+/.test(receiptEmail)}
+            error={!/\S+@\S+\.\S+/.test(receiptEmail) && receiptEmail !== ''}
             onChange={event => setReceiptEmail(event.target.value)}
           />
-        </FormControl>
-        {error}
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={handleSubmit} disabled={paymentInProgress} variant="contained">
+        </mui.FormControl>
+        <mui.FormControl fullWidth sx={{ marginTop: 2 }}>
+          <CardElement
+            id="card-element"
+            className={cx('form-control', classes.cardInput)}
+            options={CARD_ELEMENT_OPTIONS}
+            onChange={handleChange}
+            onReady={element => setCard(element)}
+          />
+        </mui.FormControl>
+        <mui.Typography color="error" mt={1}>
+          {error}
+        </mui.Typography>
+      </mui.DialogContent>
+      <mui.DialogActions>
+        <mui.Button onClick={handleSubmit} disabled={submitDisabled} variant="contained">
           Buy {credits.toLocaleString('en-US', { useGrouping: true })} credits
-        </Button>
-      </DialogActions>
-    </Dialog>
+        </mui.Button>
+      </mui.DialogActions>
+    </mui.Dialog>
   );
 }
 

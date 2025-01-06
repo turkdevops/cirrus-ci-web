@@ -1,20 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import Logs from '../logs/Logs';
-import { useLazyLoadQuery } from 'react-relay';
+import { useLazyLoadQuery, useFragment } from 'react-relay';
+
 import { graphql } from 'babel-plugin-relay/macro';
-import CirrusLinearProgress from '../common/CirrusLinearProgress';
-import { subscribeTaskCommandLogs } from '../../rtu/ConnectionManager';
-import { isTaskCommandFinalStatus } from '../../utils/status';
-import Tooltip from '@mui/material/Tooltip';
-import { makeStyles } from '@mui/styles';
-import OpenInNewOutlinedIcon from '@mui/icons-material/OpenInNewOutlined';
-import ArchiveOutlinedIcon from '@mui/icons-material/ArchiveOutlined';
-import Fab from '@mui/material/Fab';
-import {
-  TaskCommandLogsTailQuery,
-  TaskCommandLogsTailQueryResponse,
-} from './__generated__/TaskCommandLogsTailQuery.graphql';
+
+import mui from 'mui';
+
+import CirrusLinearProgress from 'components/common/CirrusLinearProgress';
+import Logs from 'components/logs/Logs';
+import { subscribeTaskCommandLogs } from 'rtu/ConnectionManager';
+import { isTaskCommandFinalStatus } from 'utils/status';
+
 import { TaskCommandStatus, TaskCommandType } from './__generated__/TaskCommandList_task.graphql';
+import { TaskCommandLogsTailQuery } from './__generated__/TaskCommandLogsTailQuery.graphql';
+import { TaskCommandLogs_executionInfo$key } from './__generated__/TaskCommandLogs_executionInfo.graphql';
 
 function logURL(taskId: string, command) {
   return 'https://api.cirrus-ci.com/v1/task/' + taskId + '/logs/' + command.name + '.log';
@@ -24,7 +22,7 @@ function cacheURL(taskId: string, cacheHit) {
   return 'https://api.cirrus-ci.com/v1/task/' + taskId + '/caches/' + cacheHit.key + '.tar.gz';
 }
 
-const useStyles = makeStyles(theme => {
+const useStyles = mui.makeStyles(theme => {
   return {
     actionButtons: {
       position: 'absolute',
@@ -49,10 +47,24 @@ interface RealTimeLogsProps {
     type: TaskCommandType;
   };
   initialLogLines: ReadonlyArray<string>;
-  executionInfo: TaskCommandLogsTailQueryResponse['task']['executionInfo'];
+  executionInfo: TaskCommandLogs_executionInfo$key;
+  stripTimestamps?: boolean;
 }
 
 function TaskCommandRealTimeLogs(props: RealTimeLogsProps) {
+  const executionInfo = useFragment(
+    graphql`
+      fragment TaskCommandLogs_executionInfo on ExecutionInfo {
+        cacheRetrievalAttempts {
+          hits {
+            key
+          }
+        }
+      }
+    `,
+    props.executionInfo,
+  );
+
   let realTimeLogs = !isTaskCommandFinalStatus(props.command.status);
   let [additionalLogs, setAdditionalLogs] = useState('\n');
 
@@ -67,7 +79,7 @@ function TaskCommandRealTimeLogs(props: RealTimeLogsProps) {
     return () => closable();
   }, [realTimeLogs, props.taskId, props.command.name, additionalLogs]);
 
-  let { taskId, command, initialLogLines, executionInfo } = props;
+  let { taskId, command, initialLogLines } = props;
   let classes = useStyles();
 
   let inProgress = !isTaskCommandFinalStatus(command.status);
@@ -80,20 +92,20 @@ function TaskCommandRealTimeLogs(props: RealTimeLogsProps) {
   let downloadButton = (
     <div className={classes.actionButtons}>
       {cacheHit && (
-        <Tooltip title="Download Cache" disableInteractive>
-          <Fab
+        <mui.Tooltip title="Download Cache" disableInteractive>
+          <mui.Fab
             variant="circular"
             className={classes.downloadButton}
             href={cacheURL(taskId, cacheHit)}
             rel="noopener noreferrer"
             size="small"
           >
-            <ArchiveOutlinedIcon />
-          </Fab>
-        </Tooltip>
+            <mui.icons.ArchiveOutlined />
+          </mui.Fab>
+        </mui.Tooltip>
       )}
-      <Tooltip title="Open Full Logs" disableInteractive>
-        <Fab
+      <mui.Tooltip title="Open Full Logs" disableInteractive>
+        <mui.Fab
           variant="circular"
           className={classes.openButton}
           href={logURL(taskId, command)}
@@ -101,15 +113,19 @@ function TaskCommandRealTimeLogs(props: RealTimeLogsProps) {
           rel="noopener noreferrer"
           size="small"
         >
-          <OpenInNewOutlinedIcon fontSize="inherit" />
-        </Fab>
-      </Tooltip>
+          <mui.icons.OpenInNewOutlined fontSize="inherit" />
+        </mui.Fab>
+      </mui.Tooltip>
     </div>
   );
   return (
     <div style={{ width: '100%', height: '100%' }}>
       {inProgress ? null : downloadButton}
-      <Logs logsName={command.name} logs={initialLogLines.join('\n') + additionalLogs} />
+      <Logs
+        logsName={command.name}
+        logs={initialLogLines.join('\n') + additionalLogs}
+        stripTimestamps={props.stripTimestamps}
+      />
       {inProgress ? <CirrusLinearProgress /> : null}
     </div>
   );
@@ -122,6 +138,7 @@ interface TaskCommandLogsProps {
     status: TaskCommandStatus;
     type: TaskCommandType;
   };
+  stripTimestamps?: boolean;
 }
 
 export default function TaskCommandLogs(props: TaskCommandLogsProps) {
@@ -131,17 +148,15 @@ export default function TaskCommandLogs(props: TaskCommandLogsProps) {
         task(id: $taskId) {
           commandLogsTail(name: $commandName)
           executionInfo {
-            cacheRetrievalAttempts {
-              hits {
-                key
-              }
-            }
+            ...TaskCommandLogs_executionInfo
           }
         }
       }
     `,
     { taskId: props.taskId, commandName: props.command.name },
   );
+
+  if (!response.task) return null;
 
   return (
     <TaskCommandRealTimeLogs

@@ -1,17 +1,20 @@
 import React from 'react';
-
 import { useFragment } from 'react-relay';
+import { useNavigate } from 'react-router-dom';
+
+import { graphql } from 'babel-plugin-relay/macro';
+
+import { useTheme } from '@mui/material';
 import Avatar from '@mui/material/Avatar';
 import Chip from '@mui/material/Chip';
 import Icon from '@mui/material/Icon';
 import Tooltip from '@mui/material/Tooltip';
-import { useTaskStatusColor } from '../../utils/colors';
-import { taskStatusIconName } from '../../utils/status';
-import { graphql } from 'babel-plugin-relay/macro';
+
+import { useTaskStatusColor } from 'utils/colors';
+import { navigateTaskHelper } from 'utils/navigateHelper';
+import { taskStatusIconName } from 'utils/status';
+
 import { TaskStatusChipExtended_task$key } from './__generated__/TaskStatusChipExtended_task.graphql';
-import { navigateTaskHelper } from '../../utils/navigateHelper';
-import { useNavigate } from 'react-router-dom';
-import { useTheme } from '@mui/material';
 
 interface Props {
   task: TaskStatusChipExtended_task$key;
@@ -57,7 +60,7 @@ export default function TaskStatusChipExtended(props: Props) {
   );
   if (hasExecutingTimestamp) {
     return (
-      <Tooltip key={key} title={`Execution started at ${new Date(task.executingTimestamp).toLocaleTimeString()}`}>
+      <Tooltip key={key} title={`Execution started at ${new Date(task.executingTimestamp!).toLocaleTimeString()}`}>
         {chip}
       </Tooltip>
     );

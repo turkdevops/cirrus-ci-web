@@ -1,16 +1,15 @@
 import React from 'react';
-import { useParams } from 'react-router-dom';
 import { useLazyLoadQuery } from 'react-relay';
+import { useParams } from 'react-router-dom';
+
 import { graphql } from 'babel-plugin-relay/macro';
 
-import HookDetails from '../../components/hooks/HookDetails';
-import NotFound from '../NotFound';
+import HookDetails from 'components/hooks/HookDetails';
+import NotFound from 'scenes/NotFound';
 
 import { HookQuery } from './__generated__/HookQuery.graphql';
 
-export default function Hook(): JSX.Element {
-  let { hookId } = useParams();
-
+function HookById(hookId: string) {
   const response = useLazyLoadQuery<HookQuery>(
     graphql`
       query HookQuery($hookId: ID!) {
@@ -27,4 +26,13 @@ export default function Hook(): JSX.Element {
     return <NotFound />;
   }
   return <HookDetails hook={response.hook} />;
+}
+export default function Hook() {
+  let { hookId } = useParams();
+
+  if (!hookId) {
+    return <NotFound />;
+  }
+
+  return HookById(hookId);
 }

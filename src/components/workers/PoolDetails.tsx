@@ -1,10 +1,13 @@
-import { makeStyles } from '@mui/styles';
-import Card from '@mui/material/Card';
-import { graphql } from 'babel-plugin-relay/macro';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useFragment, useMutation } from 'react-relay';
-import { Helmet as Head } from 'react-helmet';
-import { PoolDetails_pool$key } from './__generated__/PoolDetails_pool.graphql';
+
+import { graphql } from 'babel-plugin-relay/macro';
+
+import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
+import PauseCircleOutlineIcon from '@mui/icons-material/PauseCircleOutline';
+import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import {
   Avatar,
   CardActions,
@@ -20,43 +23,43 @@ import {
   TableRow,
   Tooltip,
 } from '@mui/material';
-import EditIcon from '@mui/icons-material/Edit';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import PoolVisibilityIcon from '../icons/PoolVisibilityIcon';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
 import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
+import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
 import FormControl from '@mui/material/FormControl';
 import FormControlLabel from '@mui/material/FormControlLabel';
+import Input from '@mui/material/Input';
+import InputLabel from '@mui/material/InputLabel';
 import Switch from '@mui/material/Switch';
 import Typography from '@mui/material/Typography';
-import InputLabel from '@mui/material/InputLabel';
-import Input from '@mui/material/Input';
-import DialogActions from '@mui/material/DialogActions';
-import Button from '@mui/material/Button';
-import {
-  UpdatePersistentWorkerPoolInput,
-  PoolDetailsUpdateMutation,
-} from './__generated__/PoolDetailsUpdateMutation.graphql';
-import {
-  GetPersistentWorkerPoolRegistrationTokenInput,
-  PoolDetailsGetRegistrationTokenMutationResponse,
-  PoolDetailsGetRegistrationTokenMutation,
-} from './__generated__/PoolDetailsGetRegistrationTokenMutation.graphql';
-import CopyPasteField from '../common/CopyPasteField';
+import { makeStyles } from '@mui/styles';
+
+import TaskStatusChipExtended from 'components/chips/TaskStatusChipExtended';
+import CopyPasteField from 'components/common/CopyPasteField';
+import PoolVisibilityIcon from 'components/icons/PoolVisibilityIcon';
+
 import WorkerStatusChip from './WorkerStatusChip';
-import TaskStatusChipExtended from '../chips/TaskStatusChipExtended';
-import DeleteIcon from '@mui/icons-material/Delete';
-import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
-import PauseCircleOutlineIcon from '@mui/icons-material/PauseCircleOutline';
 import {
   DeletePersistentWorkerInput,
   PoolDetailsDeleteWorkerMutation,
 } from './__generated__/PoolDetailsDeleteWorkerMutation.graphql';
 import {
-  UpdatePersistentWorkerInput,
+  GetPersistentWorkerPoolRegistrationTokenInput,
+  PoolDetailsGetRegistrationTokenMutation,
+  PoolDetailsGetRegistrationTokenMutation$data,
+} from './__generated__/PoolDetailsGetRegistrationTokenMutation.graphql';
+import {
+  PoolDetailsUpdateMutation,
+  UpdatePersistentWorkerPoolInput,
+} from './__generated__/PoolDetailsUpdateMutation.graphql';
+import {
   PoolDetailsUpdateWorkerMutation,
+  UpdatePersistentWorkerInput,
 } from './__generated__/PoolDetailsUpdateWorkerMutation.graphql';
+import { PoolDetails_pool$key } from './__generated__/PoolDetails_pool.graphql';
 
 const useStyles = makeStyles(theme => {
   return {
@@ -111,7 +114,7 @@ export default function PoolDetails(props: PoolDetailsProps) {
   );
 
   let [openEditDialog, setOpenEditDialog] = useState(false);
-  let [registrationToken, setRegistrationToken] = useState(null);
+  let [registrationToken, setRegistrationToken] = useState<string | null>(null);
   const [commitGetRegistrationTokenMutation] = useMutation<PoolDetailsGetRegistrationTokenMutation>(graphql`
     mutation PoolDetailsGetRegistrationTokenMutation($input: GetPersistentWorkerPoolRegistrationTokenInput!) {
       persistentWorkerPoolRegistrationToken(input: $input) {
@@ -150,7 +153,7 @@ export default function PoolDetails(props: PoolDetailsProps) {
     };
     commitGetRegistrationTokenMutation({
       variables: { input: input },
-      onCompleted: (response: PoolDetailsGetRegistrationTokenMutationResponse, errors) => {
+      onCompleted: (response: PoolDetailsGetRegistrationTokenMutation$data, errors) => {
         if (errors) {
           console.log(errors);
           return;
@@ -198,12 +201,13 @@ export default function PoolDetails(props: PoolDetailsProps) {
     });
   }
 
-  let viewerCanSeeToken = pool.viewerPermission === 'ADMIN' || pool.viewerPermission === 'WRITE';
+  useEffect(() => {
+    document.title = `${pool.name} pool - Cirrus CI`;
+  }, [pool.name]);
+
+  let viewerHasPermissions = pool.viewerPermission === 'ADMIN' || pool.viewerPermission === 'WRITE';
   return (
     <>
-      <Head>
-        <title>{pool.name} pool</title>
-      </Head>
       <Card elevation={24}>
         <CardHeader
           avatar={
@@ -239,14 +243,14 @@ export default function PoolDetails(props: PoolDetailsProps) {
             on a machine that will become a persistent worker.
           </Typography>
         </CardContent>
-        {viewerCanSeeToken && registrationToken && (
+        {viewerHasPermissions && registrationToken && (
           <CardContent>
             <InputLabel htmlFor="registration-token">Registration Token</InputLabel>
             <CopyPasteField id="registration-token" value={registrationToken} fullWidth={true} />
           </CardContent>
         )}
         <CardActions sx={{ justifyContent: 'flex-end' }}>
-          {viewerCanSeeToken && !registrationToken && (
+          {viewerHasPermissions && !registrationToken && (
             <Button variant="contained" startIcon={<VisibilityIcon />} onClick={retrieveRegistrationToken}>
               Show Registration Token
             </Button>
@@ -262,8 +266,8 @@ export default function PoolDetails(props: PoolDetailsProps) {
                 <TableCell>host</TableCell>
                 <TableCell>Labels</TableCell>
                 <TableCell>Running Tasks</TableCell>
-                <TableCell></TableCell>
-                <TableCell></TableCell>
+                {viewerHasPermissions && <TableCell></TableCell>}
+                {viewerHasPermissions && <TableCell></TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -291,31 +295,35 @@ export default function PoolDetails(props: PoolDetailsProps) {
                               <TaskStatusChipExtended key={task.name} task={task} />
                             ))}
                       </TableCell>
-                      <TableCell>
-                        <Tooltip title={worker.disabled ? 'Enable task scheduling' : 'Disable task scheduling'}>
+                      {viewerHasPermissions && (
+                        <TableCell>
+                          <Tooltip title={worker.disabled ? 'Enable task scheduling' : 'Disable task scheduling'}>
+                            <IconButton
+                              edge="start"
+                              onClick={() => updateWorker(worker.name, !worker.disabled)}
+                              size="large"
+                            >
+                              {worker.disabled ? (
+                                <PlayCircleOutlineIcon className={classes.enabledWorkerButton} />
+                              ) : (
+                                <PauseCircleOutlineIcon />
+                              )}
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
+                      )}
+                      {viewerHasPermissions && (
+                        <TableCell>
                           <IconButton
-                            edge="start"
-                            onClick={() => updateWorker(worker.name, !worker.disabled)}
+                            edge="end"
+                            aria-label="delete"
+                            onClick={() => deleteWorker(worker.name)}
                             size="large"
                           >
-                            {worker.disabled ? (
-                              <PlayCircleOutlineIcon className={classes.enabledWorkerButton} />
-                            ) : (
-                              <PauseCircleOutlineIcon />
-                            )}
+                            <DeleteIcon />
                           </IconButton>
-                        </Tooltip>
-                      </TableCell>
-                      <TableCell>
-                        <IconButton
-                          edge="end"
-                          aria-label="delete"
-                          onClick={() => deleteWorker(worker.name)}
-                          size="large"
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </TableCell>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ),
               )}

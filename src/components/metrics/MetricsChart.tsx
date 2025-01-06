@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
+import { useFragment } from 'react-relay';
+import { FlexibleWidthXYPlot, Hint, LineSeries, VerticalGridLines, XAxis, YAxis } from 'react-vis';
+import 'react-vis/dist/style.css';
+
 import { graphql } from 'babel-plugin-relay/macro';
+
+import Chip from '@mui/material/Chip';
 import Typography from '@mui/material/Typography';
 import { makeStyles } from '@mui/styles';
-import { useFragment } from 'react-relay';
-import 'react-vis/dist/style.css';
-import { FlexibleWidthXYPlot, Hint, LineSeries, VerticalGridLines, XAxis, YAxis } from 'react-vis';
-import Chip from '@mui/material/Chip';
-import { formatDuration } from '../../utils/time';
+
+import { formatDuration } from 'utils/time';
+
 import { MetricsChart_chart$key } from './__generated__/MetricsChart_chart.graphql';
 
 const useStyles = makeStyles(theme => {
@@ -19,8 +23,8 @@ interface Props {
   chart: MetricsChart_chart$key;
 }
 
-function intervals(intervalIncrement, maxValue) {
-  let result = [];
+function intervals(intervalIncrement: number, maxValue: number) {
+  let result: Array<number> = [];
   let value = intervalIncrement;
   while (value < maxValue) {
     result.push(value);
@@ -93,7 +97,7 @@ export default function MetricsChart(props: Props) {
   let chartData = points.map(function (point, index) {
     return { x: index, y: point.value };
   });
-  let chartDateTicks = [];
+  let chartDateTicks: Array<number> = [];
   for (let i = 0; i < points.length; ++i) {
     let point = points[i];
     let pointDate = new Date(point.date.year, point.date.month - 1, point.date.day);
@@ -103,7 +107,7 @@ export default function MetricsChart(props: Props) {
     }
   }
 
-  let hint = null;
+  let hint: null | JSX.Element = null;
   if (hoveredPointIndex) {
     let hoveredPoint = points[hoveredPointIndex];
     let date = new Date(hoveredPoint.date.year, hoveredPoint.date.month - 1, hoveredPoint.date.day);

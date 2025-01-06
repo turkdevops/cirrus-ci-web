@@ -1,15 +1,16 @@
 import React from 'react';
 import { useFragment } from 'react-relay';
 import { useNavigate } from 'react-router-dom';
+
 import { graphql } from 'babel-plugin-relay/macro';
 
 import { useTheme } from '@mui/material';
+import Avatar from '@mui/material/Avatar';
 import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
-import Avatar from '@mui/material/Avatar';
 import Typography from '@mui/material/Typography';
 
-import { navigateHelper } from '../../utils/navigateHelper';
+import { navigateHelper } from 'utils/navigateHelper';
 
 import { RepositoryOwnerChipNew_repository$key } from './__generated__/RepositoryOwnerChipNew_repository.graphql';
 
@@ -40,7 +41,13 @@ export default function RepositoryOwnerChipNew(props: Props) {
     <Chip
       className={props.className}
       label={repository.owner}
-      avatar={<Avatar src={`https://github.com/${repository.owner}.png`} alt={repository.owner} />}
+      avatar={
+        <Avatar
+          src={`https://github.com/${repository.owner}.png`}
+          alt={repository.owner}
+          sx={{ backgroundColor: theme.palette.action.selected }}
+        />
+      }
       size="small"
       title={repository.owner}
       onClick={e => handleRepositoryClick(e, repository)}
@@ -51,8 +58,8 @@ export default function RepositoryOwnerChipNew(props: Props) {
   return (
     <>
       {props.withHeader ? (
-        <Stack direction="column" spacing={0.5} alignItems="flex-start">
-          <Typography variant="caption" color={theme.palette.text.disabled}>
+        <Stack direction="column" spacing={1} alignItems="flex-start">
+          <Typography variant="caption" color={theme.palette.text.disabled} lineHeight={1}>
             Owner
           </Typography>
           <OwnerChip />

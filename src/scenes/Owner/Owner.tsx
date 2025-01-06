@@ -1,17 +1,16 @@
 import React from 'react';
-
 import { useLazyLoadQuery } from 'react-relay';
+import { useParams } from 'react-router-dom';
+
 import { graphql } from 'babel-plugin-relay/macro';
 
+import OwnerRepositoryList from 'components/account/OwnerRepositoryList';
+import AppBreadcrumbs from 'components/common/AppBreadcrumbs';
+import NotFound from 'scenes/NotFound';
+
 import { OwnerQuery } from './__generated__/OwnerQuery.graphql';
-import { useParams } from 'react-router-dom';
-import OwnerRepositoryList from '../../components/account/OwnerRepositoryList';
-import NotFound from '../NotFound';
-import AppBreadcrumbs from '../../components/common/AppBreadcrumbs';
 
-export default function Owner(): JSX.Element {
-  let { platform, owner } = useParams();
-
+function OwnerFor(platform: string, owner: string) {
   const response = useLazyLoadQuery<OwnerQuery>(
     graphql`
       query OwnerQuery($platform: String!, $owner: String!) {
@@ -30,10 +29,21 @@ export default function Owner(): JSX.Element {
   if (!response.ownerInfoByName) {
     return <NotFound />;
   }
+
   return (
     <>
       <AppBreadcrumbs info={response.ownerInfoByName} viewer={response.viewer} />
       <OwnerRepositoryList info={response.ownerInfoByName} />
     </>
   );
+}
+
+export default function Owner() {
+  let { platform, owner } = useParams();
+
+  if (!platform || !owner) {
+    return <NotFound />;
+  }
+
+  return OwnerFor(platform, owner);
 }

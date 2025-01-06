@@ -1,12 +1,13 @@
 import { useFragment } from 'react-relay';
+
 import { graphql } from 'babel-plugin-relay/macro';
 
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import { Tooltip } from '@mui/material';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
 
-import { formatDuration } from '../../utils/time';
+import { formatDuration } from 'utils/time';
 
 import { Duration_build$key } from './__generated__/Duration_build.graphql';
 
@@ -34,9 +35,9 @@ export default function Duration(props: Props) {
       direction={props.iconFirst ? 'row-reverse' : 'row'}
       alignItems="center"
       spacing={0.5}
-      justifyContent={props.rightAlighment && 'flex-end'}
+      justifyContent={props.rightAlighment ? 'flex-end' : 'flex-start'}
     >
-      <Typography variant="subtitle1">
+      <Typography variant="subtitle1" lineHeight={1}>
         {build.clockDurationInSeconds ? formatDuration(build.clockDurationInSeconds) : '—'}
       </Typography>
       <Tooltip title={durationTooltipTitle}>

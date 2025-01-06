@@ -1,14 +1,14 @@
-import React from 'react';
-import Icon from '@mui/material/Icon';
-import { Helmet as Head } from 'react-helmet';
-import { Box, Link, Typography } from '@mui/material';
+import React, { useEffect } from 'react';
 
-export default function NotFound(props): JSX.Element {
+import { Box, Link, Typography } from '@mui/material';
+import Icon from '@mui/material/Icon';
+
+export default function NotFound(props) {
+  useEffect(() => {
+    document.title = 'Page Not Found - Cirrus CI';
+  }, []);
   return (
     <Box sx={{ width: '100%', height: '100%', display: 'flex', justifyContent: 'center' }}>
-      <Head>
-        <title>Page Not Found - Cirrus CI</title>
-      </Head>
       <Box
         sx={{
           flexDirection: 'column',

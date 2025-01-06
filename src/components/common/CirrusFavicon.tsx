@@ -1,9 +1,12 @@
 import React, { useEffect } from 'react';
+
 import { Base64 } from 'js-base64';
-import { BuildStatus } from '../chips/__generated__/BuildStatusChip_build.graphql';
-import { TaskStatus } from '../chips/__generated__/TaskStatusChip_task.graphql';
-import { useFaviconColor } from '../../utils/colors';
+
 import { useTheme } from '@mui/material';
+
+import { BuildStatus } from 'components/chips/__generated__/BuildStatusChip_build.graphql';
+import { TaskStatus } from 'components/chips/__generated__/TaskStatusChip_task.graphql';
+import { useFaviconColor } from 'utils/colors';
 
 function updateIcon(color) {
   let linkEl = document.getElementById('favicon') as HTMLLinkElement;
@@ -23,10 +26,12 @@ function drawIcon(color, cb) {
     canvas.height = img.height;
 
     let context = canvas.getContext('2d');
-    context.clearRect(0, 0, img.width, img.height);
-    context.drawImage(img, 0, 0);
+    if (context) {
+      context.clearRect(0, 0, img.width, img.height);
+      context.drawImage(img, 0, 0);
 
-    cb(context.canvas.toDataURL());
+      cb(context.canvas.toDataURL());
+    }
   };
   img.src = 'data:image/svg+xml;base64,' + Base64.encode(iconSVG(color));
 }
@@ -53,7 +58,7 @@ interface CirrusFaviconProps {
   status?: BuildStatus | TaskStatus | boolean;
 }
 
-export default function CirrusFavicon(props: CirrusFaviconProps): JSX.Element {
+export default function CirrusFavicon(props: CirrusFaviconProps) {
   let theme = useTheme();
   useEffect(() => {
     return function cleanup() {

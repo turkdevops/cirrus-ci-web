@@ -1,11 +1,16 @@
 import React from 'react';
+import { useFragment } from 'react-relay';
+
+import { graphql } from 'babel-plugin-relay/macro';
+
+import { Card, CardContent, Link, Typography } from '@mui/material';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
-import HookListRow from './HookListRow';
-import { FragmentRefs } from 'relay-runtime';
-import { Card, CardContent, Link, Typography } from '@mui/material';
-import { HookType } from './HookType';
 import { makeStyles } from '@mui/styles';
+
+import HookListRow from './HookListRow';
+import { HookType } from './HookType';
+import { HookList_hooks$key } from './__generated__/HookList_hooks.graphql';
 
 const useStyles = makeStyles(theme => {
   return {
@@ -17,18 +22,24 @@ const useStyles = makeStyles(theme => {
   };
 });
 
-interface Hook {
-  readonly timestamp: number;
-  readonly ' $fragmentRefs': FragmentRefs<'HookListRow_hook'>;
-}
-
 interface Props {
-  hooks: ReadonlyArray<Hook>;
+  hooks: HookList_hooks$key;
   type: HookType;
 }
 
 function HooksList(props: Props) {
-  let { hooks, type } = props;
+  const hooks = useFragment(
+    graphql`
+      fragment HookList_hooks on Hook @relay(plural: true) {
+        id
+        timestamp
+        ...HookListRow_hook
+      }
+    `,
+    props.hooks,
+  );
+
+  let { type } = props;
   let classes = useStyles();
 
   if (hooks.length === 0) {
@@ -95,7 +106,9 @@ def on_ENTITY_failed(ctx):
   }
 
   const sortedHooks = hooks.slice().sort(function (a, b) {
-    return b.timestamp - a.timestamp;
+    const aTimestamp = a.timestamp || 0;
+    const bTimestamp = b.timestamp || 0;
+    return bTimestamp - aTimestamp;
   });
 
   return (

@@ -1,35 +1,19 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
+import { Helmet } from 'react-helmet';
 import { useRefetchableFragment } from 'react-relay';
-import { graphql } from 'babel-plugin-relay/macro';
-import { useNavigate } from 'react-router-dom';
-import { ThemeProvider } from '@emotion/react';
-import { useRecoilValue } from 'recoil';
-import { Helmet as Head } from 'react-helmet';
 
-import { createTheme } from '@mui/material/styles';
-import { makeStyles } from '@mui/styles';
-import { Box, ToggleButton, ToggleButtonGroup } from '@mui/material';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableRow from '@mui/material/TableRow';
+import { graphql } from 'babel-plugin-relay/macro';
+
+import { ToggleButton, ToggleButtonGroup } from '@mui/material';
 import Paper from '@mui/material/Paper';
-import Stack from '@mui/material/Stack';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
+import { makeStyles } from '@mui/styles';
 
-import Hash from '../chips/Hash';
-import Duration from '../chips/Duration';
-import { muiThemeOptions } from '../../cirrusTheme';
-import RepositoryNameChipNew from '../chips/RepositoryNameChipNew';
-import RepositoryOwnerChipNew from '../chips/RepositoryOwnerChipNew';
-import BuildBranchNameChipNew from '../chips/BuildBranchNameChipNew';
-import BuildStatusChipNew from '../chips/BuildStatusChipNew';
-import { navigateBuildHelper } from '../../utils/navigateHelper';
-import usePageWidth from '../../utils/usePageWidth';
-import { isBuildFinalStatus } from '../../utils/status';
-import BuildsTable from '../../components/builds/BuildsTable';
-import MarkdownTypography from '../common/MarkdownTypography';
+import BuildCard from 'components/builds/BuildCard';
+import MarkdownTypography from 'components/common/MarkdownTypography';
+import { isBuildFinalStatus } from 'utils/status';
+
 import { ViewerBuildListRefetchQuery } from './__generated__/ViewerBuildListRefetchQuery.graphql';
 import { ViewerBuildList_viewer$key } from './__generated__/ViewerBuildList_viewer.graphql';
 
@@ -46,24 +30,9 @@ const useStyles = makeStyles(theme => {
       paddingLeft: 14,
       justifyContent: 'space-between',
     },
-    chip: {
-      margin: theme.spacing(0.5),
-    },
-    cell: {
-      width: '100%',
-      maxWidth: '600px',
-    },
     emptyBuilds: {
       margin: theme.spacing(1.0),
       marginLeft: 14,
-    },
-    padding: {
-      margin: theme.spacing(0.5),
-    },
-    statusChip: {
-      '& *': {
-        color: theme.palette.background.default,
-      },
     },
   };
 });
@@ -75,10 +44,8 @@ interface Props {
 function ViewerBuildList(props: Props) {
   let { viewer } = props;
   let classes = useStyles();
-  const pageWidth = usePageWidth();
-  const isNewDesign = pageWidth > 900;
 
-  const [data, refetch] = useRefetchableFragment<ViewerBuildListRefetchQuery, any>(
+  const [data, refetch] = useRefetchableFragment<ViewerBuildListRefetchQuery, ViewerBuildList_viewer$key>(
     graphql`
       fragment ViewerBuildList_viewer on Query
       @argumentDefinitions(statuses: { type: "[BuildStatus!]" })
@@ -88,18 +55,8 @@ function ViewerBuildList(props: Props) {
             edges {
               node {
                 id
-                changeMessageTitle
-                durationInSeconds
                 status
-                ...Hash_build
-                ...Duration_build
-                ...BuildsTable_builds
-                ...BuildStatusChipNew_build
-                ...BuildBranchNameChipNew_build
-                repository {
-                  ...RepositoryNameChipNew_repository
-                  ...RepositoryOwnerChipNew_repository
-                }
+                ...BuildCard_build
               }
             }
           }
@@ -109,84 +66,14 @@ function ViewerBuildList(props: Props) {
     viewer,
   );
 
-  let navigate = useNavigate();
-
-  const themeOptions = useRecoilValue(muiThemeOptions);
-  const muiTheme = useMemo(() => createTheme(themeOptions), [themeOptions]);
-
-  function buildItem(build) {
-    return (
-      <TableRow
-        key={build.id}
-        onClick={e => navigateBuildHelper(navigate, e, build.id)}
-        hover={true}
-        style={{ cursor: 'pointer' }}
-      >
-        {/* STATUS REPOSITORY BRANCH */}
-        <TableCell className={classes.padding}>
-          <Stack direction="column" alignItems="start" spacing={0.5}>
-            <div className={classes.statusChip}>
-              <BuildStatusChipNew build={build} />
-            </div>
-            {/* DURATION XS-SCREEN */}
-            <Box component="span" sx={{ display: { xs: 'block', sm: 'none' } }} pl={0.5}>
-              <Duration build={build} iconFirst />
-            </Box>
-            <RepositoryNameChipNew repository={build.repository} />
-            <RepositoryOwnerChipNew repository={build.repository} />
-          </Stack>
-        </TableCell>
-
-        {/* COMMIT */}
-        <TableCell className={classes.cell}>
-          <Typography variant="subtitle1" title={build.changeMessageTitle} gutterBottom>
-            {build.changeMessageTitle}
-          </Typography>
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Hash build={build} />
-            <BuildBranchNameChipNew build={build} />
-          </Stack>
-        </TableCell>
-
-        {/* DURATION SM-SCREEN */}
-        <TableCell className={classes.cell} sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
-          <Duration build={build} rightAlighment />
-        </TableCell>
-      </TableRow>
-    );
-  }
-
   const [filter, setFilter] = useState('all');
 
-  let builds = [];
-
-  if (data.viewer.builds) {
-    builds = data.viewer.builds.edges
+  let builds =
+    data?.viewer?.builds.edges
       .map(edge => edge.node)
       .filter(build => {
         return !(filter === 'running' && isBuildFinalStatus(build.status));
-      });
-  }
-
-  let buildsComponent = isNewDesign ? (
-    <BuildsTable builds={builds} />
-  ) : (
-    <Table style={{ tableLayout: 'auto' }}>
-      <TableBody>{builds.map(build => buildItem(build))}</TableBody>
-    </Table>
-  );
-  if (builds.length === 0) {
-    buildsComponent = (
-      <div className={classes.emptyBuilds}>
-        <MarkdownTypography
-          text={
-            'No recent builds! Please check the [documentation](https://cirrus-ci.org/) on how to start with Cirrus CI.'
-          }
-        />
-      </div>
-    );
-  }
-
+      }) || [];
   const handleFilterChange = (event, newFilter) => {
     // This prevents the depressing of the toggle button
     // without pressing another button.
@@ -207,21 +94,29 @@ function ViewerBuildList(props: Props) {
   };
 
   return (
-    <ThemeProvider theme={muiTheme}>
-      <Paper className={classes.paper}>
-        <Head>
-          <title>Recent Builds - Cirrus CI</title>
-        </Head>
-        <Toolbar className={classes.header} disableGutters>
-          <Typography variant="h5">Recent Builds</Typography>
-          <ToggleButtonGroup value={filter} exclusive onChange={handleFilterChange}>
-            <ToggleButton value="all">All</ToggleButton>
-            <ToggleButton value="running">Running</ToggleButton>
-          </ToggleButtonGroup>
-        </Toolbar>
-        {buildsComponent}
-      </Paper>
-    </ThemeProvider>
+    <Paper className={classes.paper}>
+      <Helmet>
+        <title>Recent Builds - Cirrus CI</title>
+      </Helmet>
+      <Toolbar className={classes.header} disableGutters>
+        <Typography variant="h5">Recent Builds</Typography>
+        <ToggleButtonGroup value={filter} exclusive onChange={handleFilterChange}>
+          <ToggleButton value="all">All</ToggleButton>
+          <ToggleButton value="running">Running</ToggleButton>
+        </ToggleButtonGroup>
+      </Toolbar>
+      {builds.length === 0 ? (
+        <div className={classes.emptyBuilds}>
+          <MarkdownTypography
+            text={
+              'No recent builds! Please check the [documentation](https://cirrus-ci.org/) on how to start with Cirrus CI.'
+            }
+          />
+        </div>
+      ) : (
+        builds.map(build => <BuildCard key={build.id} build={build} />)
+      )}
+    </Paper>
   );
 }
 

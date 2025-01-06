@@ -1,18 +1,18 @@
 import React from 'react';
+import { useLazyLoadQuery } from 'react-relay';
+import { useParams } from 'react-router-dom';
 
 import { graphql } from 'babel-plugin-relay/macro';
-import { useLazyLoadQuery } from 'react-relay';
 
-import NotFound from '../NotFound';
-import RepositoryMetricsPage from '../../components/metrics/RepositoryMetricsPage';
-import { RepositoryMetricsQuery } from './__generated__/RepositoryMetricsQuery.graphql';
-import { useParams } from 'react-router-dom';
-import AppBreadcrumbs from '../../components/common/AppBreadcrumbs';
 import TimelineIcon from '@mui/icons-material/Timeline';
 
-export default function RepositoryMetrics(parentProps): JSX.Element {
-  const { platform, owner, name } = useParams();
+import AppBreadcrumbs from 'components/common/AppBreadcrumbs';
+import RepositoryMetricsPage from 'components/metrics/RepositoryMetricsPage';
+import NotFound from 'scenes/NotFound';
 
+import { RepositoryMetricsQuery } from './__generated__/RepositoryMetricsQuery.graphql';
+
+function RepositoryMetricsFor(platform: string, owner: string, name: string, parentProps) {
   const response = useLazyLoadQuery<RepositoryMetricsQuery>(
     graphql`
       query RepositoryMetricsQuery($platform: String!, $owner: String!, $name: String!) {
@@ -31,6 +31,7 @@ export default function RepositoryMetrics(parentProps): JSX.Element {
   if (!response.ownerRepository) {
     return <NotFound />;
   }
+
   return (
     <>
       <AppBreadcrumbs
@@ -46,4 +47,14 @@ export default function RepositoryMetrics(parentProps): JSX.Element {
       <RepositoryMetricsPage repository={response.ownerRepository} {...parentProps} />
     </>
   );
+}
+
+export default function RepositoryMetrics(parentProps) {
+  const { platform, owner, name } = useParams();
+
+  if (!platform || !owner || !name) {
+    return <NotFound />;
+  }
+
+  return RepositoryMetricsFor(platform, owner, name, parentProps);
 }

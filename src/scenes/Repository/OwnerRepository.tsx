@@ -1,20 +1,17 @@
 import React from 'react';
-
 import { useLazyLoadQuery } from 'react-relay';
+import { useParams } from 'react-router-dom';
+
 import { graphql } from 'babel-plugin-relay/macro';
 
-import RepositoryBuildList from '../../components/repositories/RepositoryBuildList';
-import NotFound from '../NotFound';
+import AppBreadcrumbs from 'components/common/AppBreadcrumbs';
+import MarkdownTypography from 'components/common/MarkdownTypography';
+import RepositoryBuildList from 'components/repositories/RepositoryBuildList';
+import NotFound from 'scenes/NotFound';
+
 import { OwnerRepositoryQuery } from './__generated__/OwnerRepositoryQuery.graphql';
-import { useParams } from 'react-router-dom';
-import MarkdownTypography from '../../components/common/MarkdownTypography';
-import AppBreadcrumbs from '../../components/common/AppBreadcrumbs';
 
-export default function OwnerRepository(): JSX.Element {
-  let params = useParams();
-  let { platform, owner, name } = params;
-  let branch = params['*'];
-
+function OwnerRepositoryFor(platform: string, owner: string, name: string, branch?: string) {
   const response = useLazyLoadQuery<OwnerRepositoryQuery>(
     graphql`
       query OwnerRepositoryQuery($platform: String!, $owner: String!, $name: String!, $branch: String) {
@@ -40,10 +37,24 @@ export default function OwnerRepository(): JSX.Element {
     );
     return <NotFound messageComponent={notFoundMessage} />;
   }
+
   return (
     <>
       <AppBreadcrumbs repository={response.ownerRepository} viewer={response.viewer} branch={branch} />
       <RepositoryBuildList repository={response.ownerRepository} branch={branch} />
     </>
   );
+}
+
+export default function OwnerRepository() {
+  let params = useParams();
+  let { platform, owner, name } = params;
+
+  if (!platform || !owner || !name) {
+    return <NotFound />;
+  }
+
+  let branch = params['*'];
+
+  return OwnerRepositoryFor(platform, owner, name, branch);
 }

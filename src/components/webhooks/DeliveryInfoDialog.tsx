@@ -1,15 +1,19 @@
+import * as Sentry from '@sentry/react';
 import React, { Suspense } from 'react';
-import DialogTitle from '@mui/material/DialogTitle';
-import Dialog from '@mui/material/Dialog';
-import DeliveryInfoDialogLazyContent from './DeliveryInfoDialogLazyContent';
-import DialogActions from '@mui/material/DialogActions/DialogActions';
+
 import Button from '@mui/material/Button/Button';
-import { DeliveryRow_delivery } from './__generated__/DeliveryRow_delivery.graphql';
-import { UnspecifiedCallbackFunction } from '../../utils/utility-types';
-import CirrusLinearProgress from './../common/CirrusLinearProgress';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions/DialogActions';
+import DialogTitle from '@mui/material/DialogTitle';
+
+import CirrusLinearProgress from 'components/common/CirrusLinearProgress';
+import { UnspecifiedCallbackFunction } from 'utils/utility-types';
+
+import DeliveryInfoDialogLazyContent from './DeliveryInfoDialogLazyContent';
+import { DeliveryRow_delivery$data } from './__generated__/DeliveryRow_delivery.graphql';
 
 interface Props {
-  delivery: DeliveryRow_delivery;
+  delivery: DeliveryRow_delivery$data;
   onClose: UnspecifiedCallbackFunction;
   open: boolean;
 }
@@ -20,9 +24,11 @@ export default function DeliveryInfoDialog(props: Props) {
   return (
     <Dialog {...other}>
       <DialogTitle>Delivery Info for {delivery.id}</DialogTitle>
-      <Suspense fallback={<CirrusLinearProgress />}>
-        <DeliveryInfoDialogLazyContent deliveryId={delivery.id} />
-      </Suspense>
+      <Sentry.ErrorBoundary fallback={<CirrusLinearProgress />}>
+        <Suspense fallback={<CirrusLinearProgress />}>
+          <DeliveryInfoDialogLazyContent deliveryId={delivery.id} />
+        </Suspense>
+      </Sentry.ErrorBoundary>
       <DialogActions>
         <Button onClick={props.onClose} variant="contained" autoFocus>
           Close

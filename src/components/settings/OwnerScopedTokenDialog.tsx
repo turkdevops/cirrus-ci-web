@@ -1,3 +1,8 @@
+import React, { useState } from 'react';
+import { useMutation, useFragment } from 'react-relay';
+
+import { graphql } from 'babel-plugin-relay/macro';
+
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
@@ -7,18 +12,16 @@ import FormControl from '@mui/material/FormControl';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Input from '@mui/material/Input';
 import InputLabel from '@mui/material/InputLabel';
-import { makeStyles } from '@mui/styles';
 import Switch from '@mui/material/Switch';
-import { graphql } from 'babel-plugin-relay/macro';
-import React, { useState } from 'react';
-import { useMutation, useFragment } from 'react-relay';
-import { OwnerScopedTokenDialog_ownerInfo$key } from './__generated__/OwnerScopedTokenDialog_ownerInfo.graphql';
+import TextField from '@mui/material/TextField';
+import { makeStyles } from '@mui/styles';
+
 import {
   OwnerScopedTokenDialogMutation,
-  OwnerScopedTokenDialogMutationResponse,
-  OwnerScopedTokenDialogMutationVariables,
+  OwnerScopedTokenDialogMutation$data,
+  OwnerScopedTokenDialogMutation$variables,
 } from './__generated__/OwnerScopedTokenDialogMutation.graphql';
-import TextField from '@mui/material/TextField';
+import { OwnerScopedTokenDialog_ownerInfo$key } from './__generated__/OwnerScopedTokenDialog_ownerInfo.graphql';
 
 const useStyles = makeStyles(theme => {
   return {
@@ -51,9 +54,9 @@ export default function OwnerScopedTokenDialog(props: Props) {
 
   let classes = useStyles();
   let [readOnly, setReadOnly] = useState(true);
-  let [expirationDays, setExpirationDays] = useState(null);
+  let [expirationDays, setExpirationDays] = useState<number | null>(null);
   let [repositoryNames, setRepositoryNames] = useState('');
-  let [newToken, setNewToken] = useState(null);
+  let [newToken, setNewToken] = useState<string | null>(null);
 
   const [commitGenerateNewScopedAccessTokenMutation] = useMutation<OwnerScopedTokenDialogMutation>(
     graphql`
@@ -64,8 +67,12 @@ export default function OwnerScopedTokenDialog(props: Props) {
       }
     `,
   );
+  function clearAndClose() {
+    setNewToken(null);
+    props.onClose();
+  }
   function generateToken() {
-    const variables: OwnerScopedTokenDialogMutationVariables = {
+    const variables: OwnerScopedTokenDialogMutation$variables = {
       input: {
         clientMutationId: 'generate-scoped-token-' + ownerInfo.uid + repositoryNames,
         platform: ownerInfo.platform,
@@ -77,7 +84,7 @@ export default function OwnerScopedTokenDialog(props: Props) {
     };
     commitGenerateNewScopedAccessTokenMutation({
       variables: variables,
-      onCompleted: (response: OwnerScopedTokenDialogMutationResponse, errors) => {
+      onCompleted: (response: OwnerScopedTokenDialogMutation$data, errors) => {
         if (errors) {
           setNewToken(`Failed to generate token!\n\n${errors.map(e => e.message).join('\n')}`);
         } else {
@@ -90,7 +97,7 @@ export default function OwnerScopedTokenDialog(props: Props) {
     });
   }
 
-  let newTokenComponent = null;
+  let newTokenComponent: null | JSX.Element = null;
   if (newToken) {
     newTokenComponent = (
       <FormControl fullWidth>
@@ -107,7 +114,7 @@ export default function OwnerScopedTokenDialog(props: Props) {
   }
 
   return (
-    <Dialog onClose={props.onClose} open={props.open}>
+    <Dialog onClose={clearAndClose} open={props.open}>
       <DialogTitle>Generate API token for repositories</DialogTitle>
       <DialogContent>
         <FormControl fullWidth>
@@ -139,7 +146,7 @@ export default function OwnerScopedTokenDialog(props: Props) {
         <Button onClick={generateToken} disabled={repositoryNames === ''} variant="contained">
           Generate
         </Button>
-        <Button onClick={props.onClose} color="secondary" variant="contained">
+        <Button onClick={clearAndClose} color="secondary" variant="contained">
           Close
         </Button>
       </DialogActions>

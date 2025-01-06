@@ -1,12 +1,12 @@
 import React from 'react';
-
 import { useLazyLoadQuery } from 'react-relay';
+
 import { graphql } from 'babel-plugin-relay/macro';
 
 import DeliveryInfoDialogContent from './DeliveryInfoDialogContent';
 import { DeliveryInfoDialogLazyContentQuery } from './__generated__/DeliveryInfoDialogLazyContentQuery.graphql';
 
-export default function DeliveryInfoDialogLazyContent(props): JSX.Element {
+export default function DeliveryInfoDialogLazyContent(props) {
   let deliveryId = props.deliveryId;
 
   const response = useLazyLoadQuery<DeliveryInfoDialogLazyContentQuery>(

@@ -1,15 +1,16 @@
 import React from 'react';
 import { useFragment } from 'react-relay';
 import { useNavigate } from 'react-router-dom';
+
 import { graphql } from 'babel-plugin-relay/macro';
 
+import Ballot from '@mui/icons-material/Ballot';
 import { useTheme } from '@mui/material';
 import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import Ballot from '@mui/icons-material/Ballot';
 
-import { navigateHelper } from '../../utils/navigateHelper';
+import { navigateHelper } from 'utils/navigateHelper';
 
 import { RepositoryNameChipNew_repository$key } from './__generated__/RepositoryNameChipNew_repository.graphql';
 
@@ -40,8 +41,8 @@ export default function RepositoryNameChipNew(props: Props) {
   return (
     <>
       {props.withHeader ? (
-        <Stack direction="column" spacing={0.5} alignItems="flex-start">
-          <Typography variant="caption" color={theme.palette.text.disabled}>
+        <Stack direction="column" spacing={1} alignItems="flex-start">
+          <Typography variant="caption" color={theme.palette.text.disabled} lineHeight={1}>
             Repository
           </Typography>
           <Chip

@@ -1,5 +1,5 @@
 container:
-  image: node:current
+  image: node:lts
 
 env:
   # see https://github.com/nodejs/node/blob/master/doc/changelogs/CHANGELOG_V17.md#17.0.0
@@ -9,7 +9,7 @@ task:
   node_modules_cache:
     folder: .yarn/cache
   install_script: yarn
-  bootstrap_script: yarn bootstrap
+  relay_script: yarn relay
   matrix:
     - name: Build
       build_script: yarn build
@@ -39,7 +39,7 @@ deploy_docker_builder:
     - curl -sL https://sentry.io/get-cli/ | bash
   build_script:
     - docker --version
-    - docker build --build-arg CIRRUS_CHANGE_IN_REPO=$CIRRUS_CHANGE_IN_REPO --build-arg SENTRY_DSN=$SENTRY_DSN --cache-from cirrusci/web-front-end:latest --tag cirrusci/web-front-end:latest .
+    - docker build --build-arg CIRRUS_CHANGE_IN_REPO=$CIRRUS_CHANGE_IN_REPO --build-arg SENTRY_DSN=$SENTRY_DSN --tag cirrusci/web-front-end:latest .
   login_script: docker login --username $DOCKER_USER_NAME --password $DOCKER_PASSWORD
   push_script: docker push cirrusci/web-front-end:latest
   copyout_build_artifacts_script:

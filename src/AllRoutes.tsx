@@ -1,58 +1,54 @@
+import * as Sentry from '@sentry/react';
 import React, { Suspense } from 'react';
 import { BrowserRouter, Link, Route, Routes } from 'react-router-dom';
-import ActiveRepositoriesDrawer from './scenes/Header/ActiveRepositoriesDrawer';
-import AppBar from '@mui/material/AppBar';
-import Drawer from '@mui/material/Drawer';
-import IconButton from '@mui/material/IconButton';
-import Toolbar from '@mui/material/Toolbar';
-import Typography from '@mui/material/Typography';
-import { makeStyles } from '@mui/styles';
-import BookIcon from '@mui/icons-material/Book';
-import MenuIcon from '@mui/icons-material/Menu';
-import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+
 import classNames from 'classnames';
-import ViewerTopRepositories from './scenes/Profile/ViewerTopRepositories';
-import CirrusLinearProgress from './components/common/CirrusLinearProgress';
-import ThemeSwitchButton from './components/common/ThemeSwitchButton';
-import { atom, useRecoilState } from 'recoil';
-import { localStorageEffect } from './utils/recoil';
-import { Container, Tooltip, useTheme } from '@mui/material';
-import GitHubIcon from '@mui/icons-material/GitHub';
-import GCPStatus from './components/status/GCPStatus';
-import GitHubStatus from './components/status/GitHubStatus';
-import * as Sentry from '@sentry/react';
+import { useRecoilState } from 'recoil';
 
-const AsyncViewerProfile = React.lazy(() => import('./scenes/Profile/ViewerProfile'));
+import { cirrusOpenDrawerState } from 'cirrusTheme';
+import mui from 'mui';
 
-const AsyncHome = React.lazy(() => import('./scenes/Home/Home'));
+import CirrusLinearProgress from 'components/common/CirrusLinearProgress';
+import ThemeSwitchButton from 'components/common/ThemeSwitchButton';
+import GCPStatus from 'components/status/GCPStatus';
+import GitHubStatus from 'components/status/GitHubStatus';
+import ActiveRepositoriesDrawer from 'scenes/Header/ActiveRepositoriesDrawer';
+import ViewerTopRepositories from 'scenes/Profile/ViewerTopRepositories';
 
-const AsyncBuildById = React.lazy(() => import('./scenes/Build/BuildById'));
+import StatusFallback from './components/status/StatusFallback';
+import ActiveRepositoriesFallback from './scenes/Header/ActiveRepositoriesDrawerFallback';
 
-const AsyncBuildBySHA = React.lazy(() => import('./scenes/Build/BuildBySHA'));
+const AsyncViewerProfile = React.lazy(() => import('scenes/Profile/ViewerProfile'));
 
-const AsyncRepository = React.lazy(() => import('./scenes/Repository/Repository'));
+const AsyncHome = React.lazy(() => import('scenes/Home/Home'));
 
-const AsyncRepositorySettings = React.lazy(() => import('./scenes/RepositorySettings/RepositorySettings'));
+const AsyncBuildById = React.lazy(() => import('scenes/Build/BuildById'));
 
-const AsyncRepositoryMetrics = React.lazy(() => import('./scenes/RepositoryMetrics/RepositoryMetrics'));
+const AsyncBuildBySHA = React.lazy(() => import('scenes/Build/BuildBySHA'));
 
-const AsyncTask = React.lazy(() => import('./scenes/Task/Task'));
+const AsyncRepository = React.lazy(() => import('scenes/Repository/Repository'));
 
-const AsyncOwnerRepository = React.lazy(() => import('./scenes/Repository/OwnerRepository'));
+const AsyncRepositorySettings = React.lazy(() => import('scenes/RepositorySettings/RepositorySettings'));
 
-const AsyncOwner = React.lazy(() => import('./scenes/Owner/Owner'));
+const AsyncRepositoryMetrics = React.lazy(() => import('scenes/RepositoryMetrics/RepositoryMetrics'));
 
-const AsyncOwnerSettingsRenderer = React.lazy(() => import('./scenes/Owner/OwnerSettingsRenderer'));
+const AsyncTask = React.lazy(() => import('scenes/Task/Task'));
 
-const AsyncPoolById = React.lazy(() => import('./scenes/Workers/PoolById'));
+const AsyncOwnerRepository = React.lazy(() => import('scenes/Repository/OwnerRepository'));
 
-const AsyncHook = React.lazy(() => import('./scenes/Hook/Hook'));
+const AsyncOwner = React.lazy(() => import('scenes/Owner/Owner'));
 
-const AsyncApiExplorerRenderer = React.lazy(() => import('./components/explorer/ApiExplorer'));
+const AsyncOwnerSettingsRenderer = React.lazy(() => import('scenes/Owner/OwnerSettingsRenderer'));
+
+const AsyncPoolById = React.lazy(() => import('scenes/Workers/PoolById'));
+
+const AsyncHook = React.lazy(() => import('scenes/Hook/Hook'));
+
+const AsyncApiExplorerRenderer = React.lazy(() => import('components/explorer/ApiExplorer'));
 
 const drawerWidth = 360;
 
-const useStyles = makeStyles(theme => {
+const useStyles = mui.makeStyles(theme => {
   return {
     flex: {
       flex: 1,
@@ -67,6 +63,10 @@ const useStyles = makeStyles(theme => {
       color: theme.palette.primary.contrastText,
       marginLeft: 8,
     },
+    // Reset ml for <nav> inside mui <mui.Stack>
+    nav: {
+      marginLeft: '0 !important',
+    },
     titleShift: {
       marginLeft: theme.spacing(2.0),
     },
@@ -76,9 +76,6 @@ const useStyles = makeStyles(theme => {
     appFrame: {
       width: '100%',
       height: '100%',
-      zIndex: 1,
-      position: 'relative',
-      display: 'flex',
     },
     appBar: {
       position: 'absolute',
@@ -87,27 +84,28 @@ const useStyles = makeStyles(theme => {
         duration: theme.transitions.duration.leavingScreen,
       }),
     },
-    shiftedFixedWidth: {
-      width: `calc(100% - ${drawerWidth}px)`,
-    },
     appBarShift: {
-      marginLeft: drawerWidth,
-      transition: theme.transitions.create(['margin', 'width'], {
-        easing: theme.transitions.easing.easeOut,
-        duration: theme.transitions.duration.enteringScreen,
-      }),
+      [theme.breakpoints.not('xs')]: {
+        marginLeft: drawerWidth,
+        transition: theme.transitions.create(['margin', 'width'], {
+          easing: theme.transitions.easing.easeOut,
+          duration: theme.transitions.duration.enteringScreen,
+        }),
+      },
     },
     drawerHeader: {
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'flex-end',
-      paddingTop: '0',
-      backgroundColor: theme.palette.action.disabledBackground,
       ...theme.mixins.toolbar,
+    },
+    drawerHeaderInfo: {
+      transition: theme.transitions.create('opacity'),
+      '.AllRouter__drawerHeader:not(:hover) &': {
+        opacity: 0,
+      },
     },
     drawerPaper: {
       position: 'relative',
       width: drawerWidth,
+      border: 'none',
     },
     topRepositories: {
       width: drawerWidth,
@@ -115,6 +113,7 @@ const useStyles = makeStyles(theme => {
     },
     content: {
       flexGrow: 1,
+      width: '100%',
       transition: theme.transitions.create('margin', {
         easing: theme.transitions.easing.easeOut,
         duration: theme.transitions.duration.leavingScreen,
@@ -129,18 +128,15 @@ const useStyles = makeStyles(theme => {
       padding: 0,
       marginLeft: 0,
     },
+    shiftedFixedWidth: {
+      width: `calc(100% - ${drawerWidth}px)`,
+    },
   };
-});
-
-const cirrusOpenDrawerState = atom({
-  key: 'CirrusOpenDrawer',
-  default: false,
-  effects_UNSTABLE: [localStorageEffect('CirrusOpenDrawer')],
 });
 
 function AllRoutes() {
   let classes = useStyles();
-  let theme = useTheme();
+  let theme = mui.useTheme();
   const [openDrawer, setOpenDrawer] = useRecoilState(cirrusOpenDrawerState);
 
   function getNavbarTitleStyling() {
@@ -148,27 +144,72 @@ function AllRoutes() {
     return openDrawer ? { marginLeft: '15px', ...shared } : shared;
   }
 
+  const isScreenDownSmSize = mui.useMediaQuery(theme.breakpoints.down('sm'));
+
+  const drawerContent = (
+    <mui.Stack
+      px={2}
+      pb={3}
+      sx={{ background: theme.palette.mode === 'light' ? mui.colors.grey[300] : mui.colors.grey[800] }}
+    >
+      <mui.Stack
+        className={classNames(classes.drawerHeader, 'AllRouter__drawerHeader')}
+        direction="row"
+        alignItems="center"
+        justifyContent="space-between"
+      >
+        <mui.Stack direction="row" alignItems="center" spacing={1}>
+          <mui.Typography variant="h6" color="text.primary">
+            Active Repositories
+          </mui.Typography>
+          <mui.Tooltip
+            title="Repositories you recently contributed&nbsp;to, sorted by&nbsp;the time of&nbsp;your contribution"
+            disableInteractive
+          >
+            <mui.icons.InfoOutlined className={classes.drawerHeaderInfo} color="info" />
+          </mui.Tooltip>
+        </mui.Stack>
+        <mui.IconButton onClick={() => setOpenDrawer(false)} size="large">
+          <mui.icons.Close />
+        </mui.IconButton>
+      </mui.Stack>
+      <Sentry.ErrorBoundary fallback={<CirrusLinearProgress />}>
+        <Suspense fallback={<CirrusLinearProgress />}>
+          <ViewerTopRepositories className={classes.topRepositories} />
+        </Suspense>
+      </Sentry.ErrorBoundary>
+    </mui.Stack>
+  );
+
   const drawer = (
-    <nav>
-      <Drawer
+    <nav className={classes.nav}>
+      <mui.Drawer
+        variant="temporary"
+        // Prevent body overflow hidden
+        open={isScreenDownSmSize && openDrawer}
+        onClose={() => setOpenDrawer(false)}
+        sx={{
+          display: { xs: 'block', sm: 'none' },
+          '& .MuiDrawer-paper': { width: { xs: '100vw' } },
+        }}
+      >
+        {drawerContent}
+      </mui.Drawer>
+      <mui.Drawer
         variant="persistent"
+        sx={{
+          display: { xs: 'none', sm: 'block' },
+          '& .MuiDrawer-paper': {
+            borderRadius: `0px 0px ${theme.shape.borderRadius * 2}px 0px`,
+          },
+        }}
         open={openDrawer}
         classes={{
           paper: classes.drawerPaper,
         }}
       >
-        <div className={classes.drawerHeader}>
-          <Typography variant="h6" color="inherit">
-            Active Repositories
-          </Typography>
-          <IconButton onClick={() => setOpenDrawer(false)} size="large">
-            <ChevronLeftIcon />
-          </IconButton>
-        </div>
-        <Suspense fallback={<CirrusLinearProgress />}>
-          <ViewerTopRepositories className={classes.topRepositories} />
-        </Suspense>
-      </Drawer>
+        {drawerContent}
+      </mui.Drawer>
     </nav>
   );
 
@@ -176,8 +217,8 @@ function AllRoutes() {
 
   return (
     <BrowserRouter>
-      <div className={classes.appFrame}>
-        <AppBar
+      <mui.Stack className={classes.appFrame} direction="row" position="relative" zIndex={1}>
+        <mui.AppBar
           enableColorOnDark
           position="static"
           className={classNames(classes.appBar, {
@@ -185,63 +226,69 @@ function AllRoutes() {
             [classes.appBarShift]: openDrawer,
           })}
         >
-          <Toolbar disableGutters={true}>
-            <IconButton
+          <mui.Toolbar disableGutters={true}>
+            <mui.IconButton
               color="inherit"
               aria-label="open navigation"
               onClick={() => setOpenDrawer(true)}
               className={classNames(classes.menuButton, openDrawer && classes.hide)}
               size="large"
             >
-              <MenuIcon />
-            </IconButton>
+              <mui.icons.Menu />
+            </mui.IconButton>
             <Link to={'/'} style={{ color: theme.palette.primary.contrastText, textDecoration: 'none' }}>
-              <Typography
+              <mui.Typography
                 variant="h6"
                 className={classNames({ [classes.titleShift]: openDrawer })}
                 style={getNavbarTitleStyling()}
                 color="inherit"
               >
                 Cirrus CI
-              </Typography>
+              </mui.Typography>
             </Link>
             <div className={classes.flex} />
-            <Suspense fallback={<div />}>
-              <GCPStatus />
-            </Suspense>
-            <Suspense fallback={<div />}>
-              <GitHubStatus />
-            </Suspense>
+            <Sentry.ErrorBoundary fallback={<StatusFallback />}>
+              <Suspense fallback={<StatusFallback />}>
+                <GCPStatus />
+              </Suspense>
+            </Sentry.ErrorBoundary>
+            <Sentry.ErrorBoundary fallback={<StatusFallback />}>
+              <Suspense fallback={<StatusFallback />}>
+                <GitHubStatus />
+              </Suspense>
+            </Sentry.ErrorBoundary>
             <ThemeSwitchButton />
-            <Tooltip title="Go to front-end source repository">
-              <IconButton
+            <mui.Tooltip sx={{ display: { xs: 'none', sm: 'block' } }} title="Go to front-end source repository">
+              <mui.IconButton
                 className={classes.linkButton}
                 href="https://github.com/cirruslabs/cirrus-ci-web"
                 target="_blank"
                 rel="noopener noreferrer"
                 size="large"
               >
-                <GitHubIcon style={{ color: theme.palette.primary.contrastText }} />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Go to documentation">
-              <IconButton
+                <mui.icons.GitHub style={{ color: theme.palette.primary.contrastText }} />
+              </mui.IconButton>
+            </mui.Tooltip>
+            <mui.Tooltip sx={{ display: { xs: 'none', sm: 'block' } }} title="Go to documentation">
+              <mui.IconButton
                 className={classes.linkButton}
                 href="https://cirrus-ci.org/"
                 target="_blank"
                 rel="noopener noreferrer"
                 size="large"
               >
-                <BookIcon style={{ color: theme.palette.primary.contrastText }} />
-              </IconButton>
-            </Tooltip>
+                <mui.icons.Book style={{ color: theme.palette.primary.contrastText }} />
+              </mui.IconButton>
+            </mui.Tooltip>
             <div className={classes.marginRight}>
-              <Suspense fallback={<CirrusLinearProgress />}>
-                <ActiveRepositoriesDrawer />
-              </Suspense>
+              <Sentry.ErrorBoundary fallback={<ActiveRepositoriesFallback />}>
+                <Suspense fallback={<ActiveRepositoriesFallback />}>
+                  <ActiveRepositoriesDrawer />
+                </Suspense>
+              </Sentry.ErrorBoundary>
             </div>
-          </Toolbar>
-        </AppBar>
+          </mui.Toolbar>
+        </mui.AppBar>
         {openDrawer ? drawer : null}
         <main
           className={classNames(classes.content, {
@@ -250,31 +297,33 @@ function AllRoutes() {
           })}
         >
           <div className={classNames('invisible', classes.drawerHeader)} />
-          <Container maxWidth={openDrawer ? false : 'lg'} disableGutters={openDrawer}>
-            <Suspense fallback={<CirrusLinearProgress />}>
-              <SentryRoutes>
-                <Route path="/" element={<AsyncHome />} />
-                <Route path="explorer" element={<AsyncApiExplorerRenderer />} />
-                <Route path="settings/profile" element={<AsyncViewerProfile />} />
-                <Route path="settings/:platform/:name" element={<AsyncOwnerSettingsRenderer />} />
-                <Route path="settings/repository/:repositoryId" element={<AsyncRepositorySettings />} />
-                <Route path="build/:buildId" element={<AsyncBuildById />} />
-                <Route path="build/:owner/:name/:SHA" element={<AsyncBuildBySHA />} />
-                <Route path=":platform/:owner/:name/*" element={<AsyncOwnerRepository />} />
-                <Route path=":platform/:owner/:name" element={<AsyncOwnerRepository />} />
-                <Route path=":platform/:owner" element={<AsyncOwner />} />
-                <Route path="repository/:repositoryId/*" element={<AsyncRepository />} />
-                <Route path="repository/:repositoryId" element={<AsyncRepository />} />
-                <Route path="metrics/repository/:platform/:owner/:name" element={<AsyncRepositoryMetrics />} />
-                <Route path="task/:taskId" element={<AsyncTask />} />
-                <Route path="task/:taskId/hooks" element={<AsyncTask />} />
-                <Route path="pool/:poolId" element={<AsyncPoolById />} />
-                <Route path="hook/:hookId" element={<AsyncHook />} />
-              </SentryRoutes>
-            </Suspense>
-          </Container>
+          <mui.Container maxWidth={openDrawer ? false : 'lg'}>
+            <Sentry.ErrorBoundary fallback={<CirrusLinearProgress />}>
+              <Suspense fallback={<CirrusLinearProgress />}>
+                <SentryRoutes>
+                  <Route path="/" element={<AsyncHome />} />
+                  <Route path="explorer" element={<AsyncApiExplorerRenderer />} />
+                  <Route path="settings/profile" element={<AsyncViewerProfile />} />
+                  <Route path="settings/:platform/:name" element={<AsyncOwnerSettingsRenderer />} />
+                  <Route path="settings/repository/:repositoryId" element={<AsyncRepositorySettings />} />
+                  <Route path="build/:buildId" element={<AsyncBuildById />} />
+                  <Route path="build/:owner/:name/:SHA" element={<AsyncBuildBySHA />} />
+                  <Route path=":platform/:owner/:name/*" element={<AsyncOwnerRepository />} />
+                  <Route path=":platform/:owner/:name" element={<AsyncOwnerRepository />} />
+                  <Route path=":platform/:owner" element={<AsyncOwner />} />
+                  <Route path="repository/:repositoryId/*" element={<AsyncRepository />} />
+                  <Route path="repository/:repositoryId" element={<AsyncRepository />} />
+                  <Route path="metrics/repository/:platform/:owner/:name" element={<AsyncRepositoryMetrics />} />
+                  <Route path="task/:taskId" element={<AsyncTask />} />
+                  <Route path="task/:taskId/hooks" element={<AsyncTask />} />
+                  <Route path="pool/:poolId" element={<AsyncPoolById />} />
+                  <Route path="hook/:hookId" element={<AsyncHook />} />
+                </SentryRoutes>
+              </Suspense>
+            </Sentry.ErrorBoundary>
+          </mui.Container>
         </main>
-      </div>
+      </mui.Stack>
     </BrowserRouter>
   );
 }

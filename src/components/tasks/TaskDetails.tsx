@@ -1,91 +1,64 @@
-import { makeStyles } from '@mui/styles';
-import environment from '../../createRelayEnvironment';
-import Button from '@mui/material/Button';
-import Card from '@mui/material/Card';
-import CardActions from '@mui/material/CardActions';
-import CardContent from '@mui/material/CardContent';
-import Chip from '@mui/material/Chip';
-import Paper from '@mui/material/Paper';
-import Typography from '@mui/material/Typography';
+import * as Sentry from '@sentry/react';
+import React, { Suspense, useEffect, useMemo, useState } from 'react';
+import { requestSubscription, useFragment, useMutation } from 'react-relay';
+import { useLocation, useNavigate } from 'react-router-dom';
+
+import * as graphlib from '@dagrejs/graphlib';
+import * as _ from 'lodash';
 import { graphql } from 'babel-plugin-relay/macro';
 import classNames from 'classnames';
-import React, { Suspense, useEffect, useState, useMemo } from 'react';
-import { useFragment, useMutation, requestSubscription } from 'react-relay';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { navigateBuildHelper, navigateTaskHelper } from '../../utils/navigateHelper';
-import { hasWritePermissions } from '../../utils/permissions';
-import { isTaskFinalStatus } from '../../utils/status';
-import { shorten } from '../../utils/text';
-import TaskArtifacts from '../artifacts/TaskArtifacts';
-import TaskCreatedChip from '../chips/TaskCreatedChip';
-import TaskOptionalChip from '../chips/TaskOptionalChip';
-import TaskScheduledChip from '../chips/TaskScheduledChip';
-import TaskStatusChip from '../chips/TaskStatusChip';
-import TaskTransactionChip from '../chips/TaskTransactionChip';
-import CirrusFavicon from '../common/CirrusFavicon';
+
+import environment from 'createRelayEnvironment';
+import mui from 'mui';
+
+import TaskArtifacts from 'components/artifacts/TaskArtifacts';
+import TaskCancellerChip from 'components/chips/TaskCancellerChip';
+import TaskCreatedChip from 'components/chips/TaskCreatedChip';
+import TaskExperimentalChip from 'components/chips/TaskExperimentalChip';
+import TaskOptionalChip from 'components/chips/TaskOptionalChip';
+import TaskRerunnerChip from 'components/chips/TaskRerunnerChip';
+import TaskResourcesChip from 'components/chips/TaskResourcesChip';
+import TaskScheduledChip from 'components/chips/TaskScheduledChip';
+import TaskStatefulChip from 'components/chips/TaskStatefulChip';
+import TaskStatusChip from 'components/chips/TaskStatusChip';
+import TaskTimeoutChip from 'components/chips/TaskTimeoutChip';
+import TaskTransactionChip from 'components/chips/TaskTransactionChip';
+import { CirrusTerminal } from 'components/cirrus-terminal/CirrusTerminal';
+import CirrusFavicon from 'components/common/CirrusFavicon';
+import CirrusLinearProgress from 'components/common/CirrusLinearProgress';
+import CommitMessage from 'components/common/CommitMessage';
+import Notification from 'components/common/Notification';
+import ExecutionInfo from 'components/common/TaskExecutionInfo';
+import HookList from 'components/hooks/HookList';
+import { HookType } from 'components/hooks/HookType';
+import { navigateBuildHelper, navigateTaskHelper } from 'utils/navigateHelper';
+import { hasWritePermissions } from 'utils/permissions';
+import { isTaskFinalStatus } from 'utils/status';
+import { shorten } from 'utils/text';
+
 import TaskCommandList from './TaskCommandList';
 import TaskCommandsProgress from './TaskCommandsProgress';
+import TaskDebuggingInformation from './TaskDebuggingInformation';
 import TaskList from './TaskList';
-import { TaskDetails_task, TaskDetails_task$key } from './__generated__/TaskDetails_task.graphql';
-import {
-  TaskDetailsReRunMutation,
-  TaskDetailsReRunMutationResponse,
-  TaskDetailsReRunMutationVariables,
-} from './__generated__/TaskDetailsReRunMutation.graphql';
-import TaskResourcesChip from '../chips/TaskResourcesChip';
-import { Helmet as Head } from 'react-helmet';
-import ExecutionInfo from '../common/TaskExecutionInfo';
-import Refresh from '@mui/icons-material/Refresh';
-import PlayCircleFilled from '@mui/icons-material/PlayCircleFilled';
-import Cancel from '@mui/icons-material/Cancel';
-import ArrowBack from '@mui/icons-material/ArrowBack';
-import TaskExperimentalChip from '../chips/TaskExperimentalChip';
-import TaskStatefulChip from '../chips/TaskStatefulChip';
-import TaskTimeoutChip from '../chips/TaskTimeoutChip';
-import Notification from '../common/Notification';
-import HookList from '../hooks/HookList';
-import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
-import { TabContext, TabList, TabPanel } from '@mui/lab';
-import { ToggleButton } from '@mui/material';
-import {
-  Badge,
-  ButtonGroup,
-  ClickAwayListener,
-  Collapse,
-  Grow,
-  IconButton,
-  List,
-  MenuItem,
-  MenuList,
-  Popper,
-  Tab,
-  Tooltip,
-} from '@mui/material';
-import { BugReport, Dehaze, Functions, LayersClear } from '@mui/icons-material';
-import {
-  TaskDetailsInvalidateCachesMutation,
-  TaskDetailsInvalidateCachesMutationResponse,
-  TaskDetailsInvalidateCachesMutationVariables,
-} from './__generated__/TaskDetailsInvalidateCachesMutation.graphql';
-import TaskRerunnerChip from '../chips/TaskRerunnerChip';
-import TaskCancellerChip from '../chips/TaskCancellerChip';
-import Accordion from '@mui/material/Accordion';
-import AccordionDetails from '@mui/material/AccordionDetails';
-import AccordionSummary from '@mui/material/AccordionSummary';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { CirrusTerminal } from '../cirrus-terminal/CirrusTerminal';
-import { HookType } from '../hooks/HookType';
-import {
-  TaskDetailsTriggerMutation,
-  TaskDetailsTriggerMutationVariables,
-} from './__generated__/TaskDetailsTriggerMutation.graphql';
 import {
   TaskDetailsCancelMutation,
-  TaskDetailsCancelMutationVariables,
+  TaskDetailsCancelMutation$variables,
 } from './__generated__/TaskDetailsCancelMutation.graphql';
-import TaskDebuggingInformation from './TaskDebuggingInformation';
-import CirrusLinearProgress from '../common/CirrusLinearProgress';
-import CommitMessage from '../common/CommitMessage';
+import {
+  TaskDetailsInvalidateCachesMutation,
+  TaskDetailsInvalidateCachesMutation$data,
+  TaskDetailsInvalidateCachesMutation$variables,
+} from './__generated__/TaskDetailsInvalidateCachesMutation.graphql';
+import {
+  TaskDetailsReRunMutation,
+  TaskDetailsReRunMutation$data,
+  TaskDetailsReRunMutation$variables,
+} from './__generated__/TaskDetailsReRunMutation.graphql';
+import {
+  TaskDetailsTriggerMutation,
+  TaskDetailsTriggerMutation$variables,
+} from './__generated__/TaskDetailsTriggerMutation.graphql';
+import { TaskDetails_task$key, TaskDetails_task$data } from './__generated__/TaskDetails_task.graphql';
 
 const taskSubscription = graphql`
   subscription TaskDetailsSubscription($taskID: ID!) {
@@ -95,7 +68,7 @@ const taskSubscription = graphql`
   }
 `;
 
-const useStyles = makeStyles(theme => {
+const useStyles = mui.makeStyles(theme => {
   return {
     title: {
       padding: 8,
@@ -126,6 +99,10 @@ const useStyles = makeStyles(theme => {
     transaction: {
       backgroundColor: theme.palette.success.light,
     },
+    taskLogOptions: {
+      background: theme.palette.mode === 'dark' ? theme.palette.secondary.dark : theme.palette.secondary.light,
+      padding: theme.spacing(2),
+    },
     tabPanel: {
       padding: 0,
     },
@@ -148,6 +125,7 @@ export default function TaskDetails(props: Props) {
     graphql`
       fragment TaskDetails_task on Task {
         id
+        localGroupId
         name
         buildId
         status
@@ -182,6 +160,11 @@ export default function TaskDetails(props: Props) {
           ...Notification_notification
         }
         build {
+          tasks {
+            id
+            localGroupId
+            requiredGroups
+          }
           branch
           changeIdInRepo
           changeMessageTitle
@@ -195,27 +178,15 @@ export default function TaskDetails(props: Props) {
           ...RepositoryNameChip_repository
         }
         allOtherRuns {
-          id
-          localGroupId
-          requiredGroups
-          scheduledTimestamp
-          executingTimestamp
-          finalStatusTimestamp
-          ...TaskListRow_task
+          ...TaskList_tasks
         }
         dependencies {
-          id
-          localGroupId
-          requiredGroups
-          scheduledTimestamp
-          executingTimestamp
-          finalStatusTimestamp
-          ...TaskListRow_task
+          status
+          ...TaskList_tasks
         }
         ...TaskExecutionInfo_task
         hooks {
-          timestamp
-          ...HookListRow_hook
+          ...HookList_hooks
         }
         executionInfo {
           cacheRetrievalAttempts {
@@ -257,9 +228,9 @@ export default function TaskDetails(props: Props) {
   let repository = task.repository;
 
   const [commitTaskReRunMutation] = useMutation<TaskDetailsReRunMutation>(graphql`
-    mutation TaskDetailsReRunMutation($input: TaskReRunInput!) {
-      rerun(input: $input) {
-        newTask {
+    mutation TaskDetailsReRunMutation($input: TasksReRunInput!) {
+      batchReRun(input: $input) {
+        newTasks {
           id
         }
       }
@@ -302,7 +273,7 @@ export default function TaskDetails(props: Props) {
   `);
 
   function trigger(taskId) {
-    const variables: TaskDetailsTriggerMutationVariables = {
+    const variables: TaskDetailsTriggerMutation$variables = {
       input: {
         clientMutationId: 'trigger-' + taskId,
         taskId: taskId,
@@ -316,7 +287,7 @@ export default function TaskDetails(props: Props) {
   }
 
   function abort(taskId) {
-    const variables: TaskDetailsCancelMutationVariables = {
+    const variables: TaskDetailsCancelMutation$variables = {
       input: {
         clientMutationId: 'abort-' + taskId,
         taskId: taskId,
@@ -331,11 +302,11 @@ export default function TaskDetails(props: Props) {
 
   let notificationsComponent =
     !task.notifications || task.notifications.length === 0 ? null : (
-      <List>
+      <mui.List>
         {task.notifications.map(notification => (
           <Notification key={notification.message} notification={notification} />
         ))}
-      </List>
+      </mui.List>
     );
 
   let artifactsComponent =
@@ -360,23 +331,53 @@ export default function TaskDetails(props: Props) {
     setRerunOptionsShown(false);
   };
 
-  function rerun(taskId: string, withTerminalAccess: boolean) {
-    const variables: TaskDetailsReRunMutationVariables = {
+  function rerunCurrentTaskWithTraversal(reverse: boolean) {
+    let graph = new graphlib.Graph();
+
+    for (let buildTask of task.build.tasks) {
+      graph.setNode(buildTask.localGroupId.toString(), buildTask.id);
+
+      for (let requiredGroup of buildTask.requiredGroups) {
+        if (reverse) {
+          graph.setEdge(requiredGroup.toString(), buildTask.localGroupId.toString());
+        } else {
+          graph.setEdge(buildTask.localGroupId.toString(), requiredGroup.toString());
+        }
+      }
+    }
+
+    let taskIds: string[] = [];
+
+    // Traverse the graph and retrieve a task ID for each node
+    for (let node of graphlib.alg.preorder(graph, [task.localGroupId.toString()])) {
+      taskIds.push(graph.node(node));
+    }
+
+    rerun(taskIds, false);
+  }
+
+  function rerun(taskIds: string[], withTerminalAccess: boolean) {
+    const variables: TaskDetailsReRunMutation$variables = {
       input: {
-        clientMutationId: 'rerun-' + taskId,
-        taskId: taskId,
+        clientMutationId: 'rerun-' + taskIds[0],
+        taskIds: taskIds,
         attachTerminal: withTerminalAccess,
       },
     };
 
     commitTaskReRunMutation({
       variables: variables,
-      onCompleted: (response: TaskDetailsReRunMutationResponse, errors) => {
+      onCompleted: (response: TaskDetailsReRunMutation$data, errors) => {
         if (errors) {
           console.error(errors);
           return;
         }
-        navigateTaskHelper(navigate, null, response.rerun.newTask.id);
+
+        if (taskIds.length > 1) {
+          navigateBuildHelper(navigate, null, task.buildId);
+        } else {
+          navigateTaskHelper(navigate, null, response.batchReRun.newTasks[0].id);
+        }
       },
       onError: err => console.error(err),
     });
@@ -385,15 +386,15 @@ export default function TaskDetails(props: Props) {
   let reRunButton =
     !hasWritePermissions(build.viewerPermission) || !isFinalStatus ? null : (
       <>
-        <ButtonGroup variant="contained" ref={anchorRef}>
-          <Button onClick={() => rerun(task.id, false)} startIcon={<Refresh />}>
+        <mui.ButtonGroup variant="contained" ref={anchorRef}>
+          <mui.Button onClick={() => rerun([task.id], false)} startIcon={<mui.icons.Refresh />}>
             Re-Run
-          </Button>
-          <Button size="small" onClick={toggleRerunOptions}>
-            <ArrowDropDownIcon />
-          </Button>
-        </ButtonGroup>
-        <Popper
+          </mui.Button>
+          <mui.Button size="small" onClick={toggleRerunOptions}>
+            <mui.icons.ArrowDropDown />
+          </mui.Button>
+        </mui.ButtonGroup>
+        <mui.Popper
           open={rerunOptionsShown}
           anchorEl={anchorRef.current}
           role={undefined}
@@ -402,50 +403,57 @@ export default function TaskDetails(props: Props) {
           className={classes.rerunOptionPopup}
         >
           {({ TransitionProps, placement }) => (
-            <Grow
+            <mui.Grow
               {...TransitionProps}
               style={{
                 transformOrigin: placement === 'bottom' ? 'center top' : 'center bottom',
               }}
             >
-              <Paper elevation={24}>
-                <ClickAwayListener onClickAway={closeRerunOptions}>
-                  <MenuList id="split-button-menu">
-                    <MenuItem onClick={() => rerun(task.id, true)}>Re-Run with Terminal Access</MenuItem>
-                  </MenuList>
-                </ClickAwayListener>
-              </Paper>
-            </Grow>
+              <mui.Paper elevation={24}>
+                <mui.ClickAwayListener onClickAway={closeRerunOptions}>
+                  <mui.MenuList id="split-button-menu">
+                    <mui.MenuItem onClick={() => rerun([task.id], true)}>Re-Run with Terminal Access</mui.MenuItem>
+                    <mui.MenuItem onClick={() => rerunCurrentTaskWithTraversal(true)}>
+                      Re-Run with Dependents
+                    </mui.MenuItem>
+                    <mui.MenuItem onClick={() => rerunCurrentTaskWithTraversal(false)}>
+                      Re-Run with Dependencies
+                    </mui.MenuItem>
+                  </mui.MenuList>
+                </mui.ClickAwayListener>
+              </mui.Paper>
+            </mui.Grow>
           )}
-        </Popper>
+        </mui.Popper>
       </>
     );
 
-  let taskIsTriggerable = task.status === 'PAUSED';
+  let allDependenciesInFinalStatus = !task.dependencies.find(task => !isTaskFinalStatus(task.status));
+  let taskIsTriggerable = task.status === 'PAUSED' && (allDependenciesInFinalStatus || task.triggerType === 'MANUAL');
   let taskIsPreTriggerable = task.status === 'CREATED' && task.triggerType === 'MANUAL';
   let triggerButton =
     !hasWritePermissions(build.viewerPermission) || !taskIsTriggerable ? null : (
-      <Button variant="contained" onClick={() => trigger(task.id)} startIcon={<PlayCircleFilled />}>
+      <mui.Button variant="contained" onClick={() => trigger(task.id)} startIcon={<mui.icons.PlayCircleFilled />}>
         Trigger
-      </Button>
+      </mui.Button>
     );
   let preTriggerButton =
     !hasWritePermissions(build.viewerPermission) || !taskIsPreTriggerable ? null : (
-      <Button variant="contained" onClick={() => trigger(task.id)} startIcon={<PlayCircleFilled />}>
+      <mui.Button variant="contained" onClick={() => trigger(task.id)} startIcon={<mui.icons.PlayCircleFilled />}>
         Pre-Trigger
-      </Button>
+      </mui.Button>
     );
 
   let abortButton =
     isFinalStatus || !hasWritePermissions(build.viewerPermission) ? null : (
-      <Button variant="contained" onClick={() => abort(task.id)} startIcon={<Cancel />}>
+      <mui.Button variant="contained" onClick={() => abort(task.id)} startIcon={<mui.icons.Cancel />}>
         Cancel
-      </Button>
+      </mui.Button>
     );
 
   const [disableInvalidateCachesButton, setDisableInvalidateCachesButton] = React.useState(false);
 
-  function validCacheKeys(task: TaskDetails_task) {
+  function validCacheKeys(task: TaskDetails_task$data) {
     if (task.executionInfo === null || task.executionInfo.cacheRetrievalAttempts === null) return [];
 
     return task.executionInfo.cacheRetrievalAttempts.hits
@@ -457,12 +465,12 @@ export default function TaskDetails(props: Props) {
       });
   }
 
-  function invalidateCaches(task: TaskDetails_task) {
+  function invalidateCaches(task: TaskDetails_task$data) {
     let cacheKeys = validCacheKeys(task);
 
     if (cacheKeys.length === 0) return;
 
-    const variables: TaskDetailsInvalidateCachesMutationVariables = {
+    const variables: TaskDetailsInvalidateCachesMutation$variables = {
       input: {
         clientMutationId: 'invalidate-caches-' + task.id,
         taskId: task.id,
@@ -472,7 +480,7 @@ export default function TaskDetails(props: Props) {
 
     commitInvalidateCachesMutation({
       variables: variables,
-      onCompleted: (response: TaskDetailsInvalidateCachesMutationResponse, errors) => {
+      onCompleted: (response: TaskDetailsInvalidateCachesMutation$data, errors) => {
         if (errors) {
           console.log(errors);
           return;
@@ -485,38 +493,38 @@ export default function TaskDetails(props: Props) {
 
   let invalidateCachesButton =
     validCacheKeys(task).length === 0 || !hasWritePermissions(build.viewerPermission) ? null : (
-      <Tooltip title="Invalidate all cache entries referenced by this task">
-        <Button
+      <mui.Tooltip title="Invalidate all cache entries referenced by this task">
+        <mui.Button
           variant="contained"
           onClick={() => invalidateCaches(task)}
-          startIcon={<LayersClear />}
+          startIcon={<mui.icons.LayersClear />}
           disabled={disableInvalidateCachesButton}
         >
           Clear Task Caches
-        </Button>
-      </Tooltip>
+        </mui.Button>
+      </mui.Tooltip>
     );
 
-  let allOtherRuns: JSX.Element | [] = [];
+  let allOtherRuns: JSX.Element | null = null;
   if (task.allOtherRuns && task.allOtherRuns.length > 0) {
     allOtherRuns = (
-      <Paper elevation={24}>
-        <Typography className={classes.title} variant="caption" gutterBottom display="block" align="center">
+      <mui.Paper elevation={24}>
+        <mui.Typography className={classes.title} variant="caption" gutterBottom display="block" align="center">
           All Other Runs
-        </Typography>
+        </mui.Typography>
         <TaskList tasks={task.allOtherRuns} showCreation={true} />
-      </Paper>
+      </mui.Paper>
     );
   }
-  let dependencies: JSX.Element | [] = [];
+  let dependencies: JSX.Element | null = null;
   if (task.dependencies && task.dependencies.length > 0) {
     dependencies = (
-      <Paper elevation={24}>
-        <Typography className={classes.title} variant="caption" gutterBottom display="block" align="center">
+      <mui.Paper elevation={24}>
+        <mui.Typography className={classes.title} variant="caption" gutterBottom display="block" align="center">
           Dependencies
-        </Typography>
+        </mui.Typography>
         <TaskList tasks={task.dependencies} />
-      </Paper>
+      </mui.Paper>
     );
   }
 
@@ -535,31 +543,67 @@ export default function TaskDetails(props: Props) {
     setDisplayDebugInfo(!displayDebugInfo);
   };
 
+  let taskLogOptions = <></>;
+
+  // Task log options
+  const [stripTimestamps, setStripTimestamps] = React.useState(false);
+
+  const cirrusLogTimestamp = _.some(task.labels, function (label) {
+    return _.isEqual(label.split(':'), ['CIRRUS_LOG_TIMESTAMP', 'true']);
+  });
+
+  if (cirrusLogTimestamp) {
+    const onChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+      setStripTimestamps(!event.target.checked);
+    };
+
+    taskLogOptions = (
+      <mui.Paper className={classes.taskLogOptions}>
+        <mui.FormGroup>
+          <mui.FormControlLabel
+            control={<mui.Checkbox checked={!stripTimestamps} onChange={onChange} />}
+            label="Display log timestamps"
+          />
+        </mui.FormGroup>
+      </mui.Paper>
+    );
+  }
+
   const tabbedCommandsAndHooks = (
-    <TabContext value={currentTab}>
-      <TabList onChange={handleChange}>
-        <Tab icon={<Dehaze />} label={'Instructions (' + task.commands.length + ')'} value="instructions" />
-        <Tab icon={<Functions />} label={'Hooks (' + task.hooks.length + ')'} value="hooks" />
-      </TabList>
-      <TabPanel value="instructions" className={classes.tabPanel}>
-        <TaskCommandList task={task} />
-      </TabPanel>
-      <TabPanel value="hooks" className={classes.tabPanel}>
+    <mui.TabContext value={currentTab}>
+      <mui.TabList onChange={handleChange}>
+        <mui.Tab
+          icon={<mui.icons.Dehaze />}
+          label={'Instructions (' + task.commands.length + ')'}
+          value="instructions"
+        />
+        <mui.Tab icon={<mui.icons.Functions />} label={'Hooks (' + task.hooks.length + ')'} value="hooks" />
+      </mui.TabList>
+      {taskLogOptions}
+      <mui.TabPanel value="instructions" className={classes.tabPanel}>
+        <TaskCommandList task={task} stripTimestamps={stripTimestamps} />
+      </mui.TabPanel>
+      <mui.TabPanel value="hooks" className={classes.tabPanel}>
         <HookList hooks={task.hooks} type={HookType.Task} />
-      </TabPanel>
-    </TabContext>
+      </mui.TabPanel>
+    </mui.TabContext>
   );
 
   function desiredLabel(label: string) {
     return !(label.startsWith('canceller_') || label.startsWith('rerunner_'));
   }
 
-  const shouldRunTerminal = task.terminalCredential != null && !isFinalStatus;
+  const shouldRunTerminal = Boolean(task.terminalCredential && !isFinalStatus);
 
   useEffect(() => {
-    let ct = new CirrusTerminal(document.getElementById('terminal'));
+    const terminalElement = document.getElementById('terminal');
+    if (!terminalElement) {
+      console.error('Terminal element not found');
+      return;
+    }
+    let ct = new CirrusTerminal(terminalElement);
 
-    if (shouldRunTerminal) {
+    if (task.terminalCredential && !isFinalStatus) {
       ct.connect(
         'https://terminal.cirrus-ci.com',
         task.terminalCredential.locator,
@@ -570,52 +614,53 @@ export default function TaskDetails(props: Props) {
     return () => {
       ct.dispose();
     };
-  }, [shouldRunTerminal, task.terminalCredential]);
+  }, [isFinalStatus, task.terminalCredential]);
 
   let taskLabelsToShow = task.labels.filter(desiredLabel);
   let MAX_TASK_LABELS_TO_SHOW = 5;
   let [hideExtraLabels, setHideExtraLabels] = useState(taskLabelsToShow.length > MAX_TASK_LABELS_TO_SHOW);
   let taskLabels = taskLabelsToShow.map(label => {
     return (
-      <Tooltip key={label} title={label}>
-        <Chip className={classes.chip} label={shorten(label)} />
-      </Tooltip>
+      <mui.Tooltip key={label} title={label}>
+        <mui.Chip className={classes.chip} label={shorten(label)} />
+      </mui.Tooltip>
     );
   });
   if (hideExtraLabels) {
     taskLabels = taskLabels.slice(0, MAX_TASK_LABELS_TO_SHOW);
     taskLabels.push(
-      <Tooltip key="show-more" title="Show all labels">
-        <IconButton onClick={() => setHideExtraLabels(false)}>
-          <ExpandMoreIcon sx={{ transform: 'rotate(-90deg)' }} />
-        </IconButton>
-      </Tooltip>,
+      <mui.Tooltip key="show-more" title="Show all labels">
+        <mui.IconButton onClick={() => setHideExtraLabels(false)}>
+          <mui.icons.ExpandMore sx={{ transform: 'rotate(-90deg)' }} />
+        </mui.IconButton>
+      </mui.Tooltip>,
     );
   }
 
   const hasNoAgentNotifications = task.executionInfo?.agentNotifications?.length === 0;
 
+  useEffect(() => {
+    document.title = `${task.name} - Cirrus CI`;
+  }, [task.name]);
+
   return (
     <div>
-      <Head>
-        <title>{task.name} - Cirrus CI</title>
-      </Head>
       <CirrusFavicon status={task.status} />
-      <Card elevation={24}>
-        <CardContent>
+      <mui.Card elevation={24}>
+        <mui.CardContent>
           <div className={classes.wrapper}>
             <div className={classes.wrapper} style={{ flexGrow: 1 }}>
               <TaskCreatedChip className={classes.chip} task={task} />
               <TaskScheduledChip className={classes.chip} task={task} />
               <TaskStatusChip className={classes.chip} task={task} />
             </div>
-            <Tooltip title="Debugging View" sx={{ display: isFinalStatus ? null : 'none' }}>
-              <Badge variant="dot" color="warning" invisible={hasNoAgentNotifications}>
-                <ToggleButton value="bug" onClick={toggleDisplayDebugInfo} selected={displayDebugInfo}>
-                  <BugReport />
-                </ToggleButton>
-              </Badge>
-            </Tooltip>
+            <mui.Tooltip title="Debugging View" sx={{ display: isFinalStatus ? { xs: 'none', sm: 'block' } : 'none' }}>
+              <mui.Badge variant="dot" color="warning" invisible={hasNoAgentNotifications}>
+                <mui.ToggleButton value="bug" onClick={toggleDisplayDebugInfo} selected={displayDebugInfo}>
+                  <mui.icons.BugReport />
+                </mui.ToggleButton>
+              </mui.Badge>
+            </mui.Tooltip>
           </div>
           <div className={classes.wrapper}>
             <TaskRerunnerChip className={classes.chip} task={task} />
@@ -633,7 +678,7 @@ export default function TaskDetails(props: Props) {
           <div className={classes.gap} />
           <div className={classNames('card-body', classes.wrapper)}>
             {task.automaticReRun ? (
-              <Chip className={classNames(classes.chip, classes.automaticReRun)} label="Automatic Re-Run" />
+              <mui.Chip className={classNames(classes.chip, classes.automaticReRun)} label="Automatic Re-Run" />
             ) : null}
             <TaskTransactionChip className={classes.chip} task={task} />
             <TaskOptionalChip className={classes.chip} task={task} />
@@ -644,47 +689,49 @@ export default function TaskDetails(props: Props) {
             {taskLabels}
           </div>
           <ExecutionInfo task={task} />
-        </CardContent>
-        <CardActions sx={{ justifyContent: 'flex-end' }}>
-          <Button
+        </mui.CardContent>
+        <mui.CardActions sx={{ justifyContent: 'flex-end' }}>
+          <mui.Button
             variant="contained"
             onClick={e => navigateBuildHelper(navigate, e, task.buildId)}
-            startIcon={<ArrowBack />}
+            startIcon={<mui.icons.ArrowBack />}
           >
             View All Tasks
-          </Button>
+          </mui.Button>
           {abortButton}
           {reRunButton}
           {triggerButton}
           {preTriggerButton}
           {invalidateCachesButton}
-        </CardActions>
-      </Card>
+        </mui.CardActions>
+      </mui.Card>
       {notificationsComponent}
-      <Collapse in={displayDebugInfo} unmountOnExit={true}>
+      <mui.Collapse in={displayDebugInfo} unmountOnExit={true}>
         <div className={classes.gap} />
-        <Suspense fallback={<CirrusLinearProgress />}>
-          <TaskDebuggingInformation taskId={task.id} />
-        </Suspense>
-      </Collapse>
-      <Collapse in={shouldRunTerminal}>
+        <Sentry.ErrorBoundary fallback={<CirrusLinearProgress />}>
+          <Suspense fallback={<CirrusLinearProgress />}>
+            <TaskDebuggingInformation taskId={task.id} />
+          </Suspense>
+        </Sentry.ErrorBoundary>
+      </mui.Collapse>
+      <mui.Collapse in={shouldRunTerminal}>
         <div className={classes.gap} />
-        <Accordion defaultExpanded={true}>
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography variant="h6">Terminal</Typography>
-          </AccordionSummary>
-          <AccordionDetails>
+        <mui.Accordion defaultExpanded={true}>
+          <mui.AccordionSummary expandIcon={<mui.icons.ExpandMore />}>
+            <mui.Typography variant="h6">Terminal</mui.Typography>
+          </mui.AccordionSummary>
+          <mui.AccordionDetails>
             <div id="terminal" className={classes.terminal} />
-          </AccordionDetails>
-        </Accordion>
-      </Collapse>
+          </mui.AccordionDetails>
+        </mui.Accordion>
+      </mui.Collapse>
       {artifactsComponent}
-      {dependencies ? <div className={classes.gap} /> : null}
+      {dependencies && <div className={classes.gap} />}
       {dependencies}
-      {allOtherRuns ? <div className={classes.gap} /> : null}
+      {allOtherRuns && <div className={classes.gap} />}
       {allOtherRuns}
       <div className={classes.gap} />
-      <Paper elevation={24}>{tabbedCommandsAndHooks}</Paper>
+      <mui.Paper elevation={24}>{tabbedCommandsAndHooks}</mui.Paper>
     </div>
   );
 }

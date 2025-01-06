@@ -1,11 +1,15 @@
-import { BuildStatus } from '../components/chips/__generated__/BuildStatusChip_build.graphql';
-import { TaskStatus } from '../components/chips/__generated__/TaskStatusChip_task.graphql';
 import { graphql } from 'babel-plugin-relay/macro';
-import { TaskCommandStatus } from './__generated__/colors_TaskCommand.graphql';
-import { NotificationLevel } from './__generated__/colors_Notification.graphql';
-import { useTheme } from '@mui/material';
-import { cirrusColorsState, prefersDarkModeState } from '../cirrusTheme';
 import { useRecoilValue } from 'recoil';
+
+import { useTheme } from '@mui/material';
+
+import { cirrusColorsState, prefersDarkModeState } from 'cirrusTheme';
+
+import { BuildStatus } from 'components/chips/__generated__/BuildStatusChip_build.graphql';
+import { TaskStatus } from 'components/chips/__generated__/TaskStatusChip_task.graphql';
+
+import { NotificationLevel } from './__generated__/colors_Notification.graphql';
+import { TaskCommandStatus } from './__generated__/colors_TaskCommand.graphql';
 
 export function useBuildStatusColor(status: BuildStatus) {
   const palette = useTheme().palette;
@@ -43,32 +47,40 @@ export function useTaskStatusColorMapping() {
   };
 }
 
+export function usePlatformColorMapping() {
+  const palette = useTheme().palette;
+  return {
+    darwin: palette.success.main,
+    linux: palette.info.main,
+    windows: palette.warning.main,
+    freebsd: palette.error.main,
+  };
+}
+
 export function useHookStatusColor(hook) {
   const palette = useTheme().palette;
 
   return hook.info.error === '' ? palette.success.main : palette.error.main;
 }
 
-export function useFaviconColor(status: BuildStatus | TaskStatus | boolean | null) {
+export function useFaviconColor(status: BuildStatus | TaskStatus | boolean | undefined) {
   const palette = useTheme().palette;
   switch (status) {
     case 'COMPLETED':
+    case true:
       return palette.success.main;
     case 'SKIPPED':
       return palette.success.light;
     case 'ABORTED':
       return palette.error.main;
     case 'FAILED':
+    case false:
       return palette.error.main;
     case 'EXECUTING':
     case 'CREATED':
     case 'SCHEDULED':
     case 'PAUSED':
       return palette.warning.light;
-    case true:
-      return palette.success.main;
-    case false:
-      return palette.error.main;
     default:
       return palette.primary.main;
   }

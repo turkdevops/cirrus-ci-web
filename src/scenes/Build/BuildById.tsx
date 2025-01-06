@@ -1,17 +1,16 @@
 import React from 'react';
-
 import { useLazyLoadQuery } from 'react-relay';
+import { useParams } from 'react-router-dom';
+
 import { graphql } from 'babel-plugin-relay/macro';
 
-import BuildDetails from '../../components/builds/BuildDetails';
-import NotFound from '../NotFound';
+import BuildDetails from 'components/builds/BuildDetails';
+import AppBreadcrumbs from 'components/common/AppBreadcrumbs';
+import NotFound from 'scenes/NotFound';
+
 import { BuildByIdQuery } from './__generated__/BuildByIdQuery.graphql';
-import { useParams } from 'react-router-dom';
-import AppBreadcrumbs from '../../components/common/AppBreadcrumbs';
 
-export default function BuildById(): JSX.Element {
-  let { buildId } = useParams();
-
+function BuildByIdStrict(buildId: string) {
   const response = useLazyLoadQuery<BuildByIdQuery>(
     graphql`
       query BuildByIdQuery($buildId: ID!) {
@@ -30,10 +29,21 @@ export default function BuildById(): JSX.Element {
   if (!response.build) {
     return <NotFound />;
   }
+
   return (
     <>
       <AppBreadcrumbs build={response.build} viewer={response.viewer} />
       <BuildDetails build={response.build} />
     </>
   );
+}
+
+export default function BuildById() {
+  let { buildId } = useParams();
+
+  if (!buildId) {
+    return <NotFound />;
+  }
+
+  return BuildByIdStrict(buildId);
 }

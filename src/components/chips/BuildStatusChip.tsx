@@ -1,16 +1,21 @@
+import React, { useEffect, useMemo } from 'react';
+import { useFragment, requestSubscription } from 'react-relay';
+
+import { graphql } from 'babel-plugin-relay/macro';
+
+import { useTheme } from '@mui/material';
 import Avatar from '@mui/material/Avatar';
 import Chip from '@mui/material/Chip';
 import Icon from '@mui/material/Icon';
 import Tooltip from '@mui/material/Tooltip';
-import { graphql } from 'babel-plugin-relay/macro';
-import React, { useEffect, useMemo } from 'react';
-import { useFragment, requestSubscription } from 'react-relay';
-import environment from '../../createRelayEnvironment';
-import { useBuildStatusColor } from '../../utils/colors';
-import { buildStatusIconName, buildStatusMessage, isBuildFinalStatus } from '../../utils/status';
-import { formatDuration } from '../../utils/time';
+
+import environment from 'createRelayEnvironment';
+
+import { useBuildStatusColor } from 'utils/colors';
+import { buildStatusIconName, buildStatusMessage, isBuildFinalStatus } from 'utils/status';
+import { formatDuration } from 'utils/time';
+
 import { BuildStatusChip_build$key } from './__generated__/BuildStatusChip_build.graphql';
-import { useTheme } from '@mui/material';
 
 const buildSubscription = graphql`
   subscription BuildStatusChipSubscription($buildID: ID!) {
@@ -32,6 +37,7 @@ export default function BuildStatusChip(props: Props) {
       fragment BuildStatusChip_build on Build {
         id
         status
+        hasPausedTasks
         durationInSeconds
         clockDurationInSeconds
       }
@@ -61,11 +67,12 @@ export default function BuildStatusChip(props: Props) {
   let { mini, className } = props;
   let message = buildStatusMessage(build.status, build.durationInSeconds);
   let buildStatusColor = useBuildStatusColor(build.status);
+  let buildStatusIcon = build.hasPausedTasks ? 'pause' : buildStatusIconName(build.status);
   if (mini) {
     return (
       <Tooltip title={message}>
         <Avatar style={{ background: buildStatusColor }} className={className}>
-          <Icon style={{ color: theme.palette.primary.contrastText }}>{buildStatusIconName(build.status)}</Icon>
+          <Icon style={{ color: theme.palette.primary.contrastText }}>{buildStatusIcon}</Icon>
         </Avatar>
       </Tooltip>
     );
@@ -83,7 +90,7 @@ export default function BuildStatusChip(props: Props) {
         label={message}
         avatar={
           <Avatar style={{ background: buildStatusColor }}>
-            <Icon style={{ color: theme.palette.primary.contrastText }}>{buildStatusIconName(build.status)}</Icon>
+            <Icon style={{ color: theme.palette.primary.contrastText }}>{buildStatusIcon}</Icon>
           </Avatar>
         }
       />

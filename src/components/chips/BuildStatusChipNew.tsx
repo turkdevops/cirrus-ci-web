@@ -1,14 +1,17 @@
 import React, { useEffect, useMemo } from 'react';
-import { graphql } from 'babel-plugin-relay/macro';
-import environment from '../../createRelayEnvironment';
 import { useFragment, requestSubscription } from 'react-relay';
+
+import { graphql } from 'babel-plugin-relay/macro';
 
 import Chip from '@mui/material/Chip';
 import Icon from '@mui/material/Icon';
 import { makeStyles } from '@mui/styles';
 
-import { isBuildFinalStatus } from '../../utils/status';
+import environment from 'createRelayEnvironment';
 
+import { isBuildFinalStatus } from 'utils/status';
+
+import { useTaskStatusColorMapping } from '../../utils/colors';
 import { BuildStatusChipNew_build$key } from './__generated__/BuildStatusChipNew_build.graphql';
 
 interface Props {
@@ -16,10 +19,12 @@ interface Props {
   mini?: boolean;
 }
 
-const useStyles = makeStyles(() => {
+const useStyles = makeStyles(theme => {
   return {
-    iconMini: {
-      fontSize: '25px !important',
+    chip: {
+      '& *': {
+        color: theme.palette.background.default,
+      },
     },
   };
 });
@@ -38,13 +43,14 @@ export default function BuildStatusChip(props: Props) {
       fragment BuildStatusChipNew_build on Build {
         id
         status
+        hasPausedTasks
       }
     `,
     props.build,
   );
 
   let classes = useStyles();
-
+  useTaskStatusColorMapping();
   const isFinalStatus = useMemo(() => isBuildFinalStatus(build.status), [build.status]);
   useEffect(() => {
     if (isFinalStatus) {
@@ -62,7 +68,7 @@ export default function BuildStatusChip(props: Props) {
     };
   }, [build.id, isFinalStatus]);
 
-  const label =
+  let label =
     {
       CREATED: 'created',
       EXECUTING: 'executing',
@@ -71,7 +77,7 @@ export default function BuildStatusChip(props: Props) {
       ABORTED: 'aborted',
     }[build.status] || build.status.toLowerCase();
 
-  const color =
+  let color =
     {
       TRIGGERED: 'info',
       CREATED: 'secondary',
@@ -81,7 +87,7 @@ export default function BuildStatusChip(props: Props) {
       ABORTED: 'warning',
     }[build.status] || 'error';
 
-  const icon =
+  let icon =
     {
       TRIGGERED: 'play_circle',
       CREATED: 'cloud_circle',
@@ -91,12 +97,21 @@ export default function BuildStatusChip(props: Props) {
       ABORTED: 'stop_circle',
     }[build.status] || 'error_circle';
 
-  if (props.mini) {
-    return (
-      <Icon className={classes.iconMini} color={color}>
-        {icon}
-      </Icon>
-    );
+  if (build.hasPausedTasks) {
+    icon = 'pause_circle';
   }
-  return <Chip label={label} color={color} size="small" variant="filled" icon={<Icon>{icon}</Icon>}></Chip>;
+
+  if (build.hasPausedTasks && build.status === 'COMPLETED') {
+    color = 'secondary';
+  }
+
+  if (props.mini) {
+    return <Icon color={color}>{icon}</Icon>;
+  }
+
+  return (
+    <div className={classes.chip}>
+      <Chip label={label} color={color} size="small" variant="filled" icon={<Icon>{icon}</Icon>}></Chip>
+    </div>
+  );
 }

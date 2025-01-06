@@ -1,12 +1,15 @@
 import React from 'react';
+import { useFragment } from 'react-relay';
 
+import { graphql } from 'babel-plugin-relay/macro';
+
+import { Tooltip, useTheme } from '@mui/material';
 import Avatar from '@mui/material/Avatar';
 import Chip from '@mui/material/Chip';
-import { useFragment } from 'react-relay';
-import { graphql } from 'babel-plugin-relay/macro';
+
+import PlatformIcon from 'components/icons/PlatformIcon';
+
 import { WorkerStatusChip_worker$key } from './__generated__/WorkerStatusChip_worker.graphql';
-import { Tooltip, useTheme } from '@mui/material';
-import PlatformIcon from '../icons/PlatformIcon';
 
 interface Props {
   className?: string;
@@ -14,6 +17,7 @@ interface Props {
 }
 
 export default function WorkerStatusChip(props: Props) {
+  let theme = useTheme();
   let worker = useFragment(
     graphql`
       fragment WorkerStatusChip_worker on PersistentWorker {
@@ -27,7 +31,11 @@ export default function WorkerStatusChip(props: Props) {
     props.worker,
   );
 
-  let theme = useTheme();
+  // Work around https://github.com/facebook/relay/issues/3514
+  if (worker == null) {
+    return <></>;
+  }
+
   let info = worker.info;
 
   let offline = true;

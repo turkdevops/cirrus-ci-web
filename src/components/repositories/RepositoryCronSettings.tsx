@@ -1,38 +1,42 @@
 import React, { useState } from 'react';
 import { useFragment, useMutation } from 'react-relay';
+import { useNavigate } from 'react-router-dom';
+
 import { graphql } from 'babel-plugin-relay/macro';
+import classNames from 'classnames';
+
+import { Add, Delete } from '@mui/icons-material';
+import { CardActions } from '@mui/material';
+import Avatar from '@mui/material/Avatar';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import CardHeader from '@mui/material/CardHeader';
+import Chip from '@mui/material/Chip';
+import Icon from '@mui/material/Icon';
 import IconButton from '@mui/material/IconButton';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableRow from '@mui/material/TableRow';
 import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import { makeStyles } from '@mui/styles';
-import { RepositoryCronSettings_repository$key } from './__generated__/RepositoryCronSettings_repository.graphql';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableRow from '@mui/material/TableRow';
-import TableCell from '@mui/material/TableCell';
-import classNames from 'classnames';
-import { useNavigate } from 'react-router-dom';
-import Chip from '@mui/material/Chip';
-import BuildStatusChip from '../chips/BuildStatusChip';
-import { Add, Delete } from '@mui/icons-material';
-import Avatar from '@mui/material/Avatar';
-import Icon from '@mui/material/Icon';
-import NextCronInvocationTimeChip from '../chips/NextCronInvocationTimeChip';
-import {
-  RepositoryCronSettingsSaveMutation,
-  RepositoryCronSettingsSaveMutationResponse,
-  RepositoryCronSettingsSaveMutationVariables,
-} from './__generated__/RepositoryCronSettingsSaveMutation.graphql';
+
+import BuildStatusChip from 'components/chips/BuildStatusChip';
+import NextCronInvocationTimeChip from 'components/chips/NextCronInvocationTimeChip';
+import { navigateBuildHelper } from 'utils/navigateHelper';
+
 import {
   RepositoryCronSettingsRemoveMutation,
-  RepositoryCronSettingsRemoveMutationResponse,
-  RepositoryCronSettingsRemoveMutationVariables,
+  RepositoryCronSettingsRemoveMutation$data,
+  RepositoryCronSettingsRemoveMutation$variables,
 } from './__generated__/RepositoryCronSettingsRemoveMutation.graphql';
-import { navigateBuildHelper } from '../../utils/navigateHelper';
-import { CardActions } from '@mui/material';
+import {
+  RepositoryCronSettingsSaveMutation,
+  RepositoryCronSettingsSaveMutation$data,
+  RepositoryCronSettingsSaveMutation$variables,
+} from './__generated__/RepositoryCronSettingsSaveMutation.graphql';
+import { RepositoryCronSettings_repository$key } from './__generated__/RepositoryCronSettings_repository.graphql';
 
 interface Props {
   repository: RepositoryCronSettings_repository$key;
@@ -121,7 +125,7 @@ export default function RepositoryCronSettings(props: Props) {
     }
   `);
   function addNewCronSetting() {
-    const variables: RepositoryCronSettingsSaveMutationVariables = {
+    const variables: RepositoryCronSettingsSaveMutation$variables = {
       input: {
         clientMutationId: `cron-save-${repository.id}-${settings.name}`,
         repositoryId: repository.id,
@@ -133,7 +137,7 @@ export default function RepositoryCronSettings(props: Props) {
 
     commitSaveCronSettingsMutation({
       variables: variables,
-      onCompleted: (response: RepositoryCronSettingsSaveMutationResponse, errors) => {
+      onCompleted: (response: RepositoryCronSettingsSaveMutation$data, errors) => {
         if (errors) {
           console.log(errors);
           return;
@@ -163,7 +167,7 @@ export default function RepositoryCronSettings(props: Props) {
     `,
   );
   function removeCronSetting(name: string) {
-    const variables: RepositoryCronSettingsRemoveMutationVariables = {
+    const variables: RepositoryCronSettingsRemoveMutation$variables = {
       input: {
         clientMutationId: `cron-remove-${repository.id}-${name}`,
         repositoryId: repository.id,
@@ -173,7 +177,7 @@ export default function RepositoryCronSettings(props: Props) {
 
     commitRemoveCronSettingsMutation({
       variables: variables,
-      onCompleted: (response: RepositoryCronSettingsRemoveMutationResponse, errors) => {
+      onCompleted: (response: RepositoryCronSettingsRemoveMutation$data, errors) => {
         if (errors) {
           console.log(errors);
           return;
